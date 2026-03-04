@@ -1,0 +1,91 @@
+{
+  "projectType": "api-service",
+  "projectName": "WalletSync",
+  "projectDescription": "A Spring Boot REST API for personal finance management with bank transaction tracking and automated categorization.",
+  "theme": "mint",
+  "primaryColor": "#10B981",
+  "lightColor": "#34D399",
+  "darkColor": "#059669",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/data-model",
+              "concepts/categorization"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/configuration",
+              "guides/pdf-upload",
+              "guides/managing-categories",
+              "guides/docker-deployment"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/movements",
+              "api/categories",
+              "api/associations",
+              "api/file-upload"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Bank transaction management with Santander support",
+    "PDF bank statement parsing and import",
+    "Expense and income categorization system",
+    "Automated transaction-to-category associations",
+    "Financial reporting by year and month",
+    "PostgreSQL data persistence",
+    "Docker containerization"
+  ],
+  "publicApiSurface": [
+    "GET /api/payments/santander",
+    "GET /api/payments/santander/{id}",
+    "GET /api/payments/santander/inCategories",
+    "GET /api/payments/santander/inCategoriesByYear/{year}",
+    "POST /api/payments/santander",
+    "POST /api/payments/santander/saveAll",
+    "POST /api/payments/santander/upload-pdf",
+    "PUT /api/payments/santander/{id}",
+    "DELETE /api/payments/santander/{id}",
+    "GET /api/categories",
+    "GET /api/categories/{id}",
+    "POST /api/categories",
+    "DELETE /api/categories/{id}",
+    "GET /api/associations",
+    "POST /api/associations",
+    "DELETE /api/associations/{id}"
+  ]
+}
