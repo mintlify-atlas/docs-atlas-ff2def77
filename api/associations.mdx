@@ -85,7 +85,7 @@ POST /api/associations
 **Request Body**
 
 <ParamField body="associationWord" type="string" required>
-  The keyword to match in transaction labels. Case-sensitive matching is typically used.
+  The keyword to match in transaction labels. Matching is case-insensitive.
 </ParamField>
 
 <ParamField body="categoryId" type="long" required>
@@ -213,7 +213,7 @@ curl -X GET http://localhost:8080/api/payments/santander/inCategories
 ## Best Practices
 
 1. **Unique Keywords** - Use distinctive keywords that clearly identify specific merchants or transaction types
-2. **Case Sensitivity** - Be aware of how your bank formats transaction labels (usually uppercase)
+2. **Case Insensitive Matching** - Keywords are matched case-insensitively, so "netflix", "NETFLIX", and "Netflix" will all match
 3. **Specificity** - Use specific keywords (e.g., "NETFLIX" not "NET") to avoid false matches
 4. **Regular Review** - Periodically review and update associations as your spending patterns change
 5. **Test Before Bulk Import** - Create a few associations and test with sample transactions before processing large PDF imports
