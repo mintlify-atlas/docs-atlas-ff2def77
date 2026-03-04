@@ -1,0 +1,588 @@
+---
+title: 'Managing Categories'
+description: 'Create and manage categories for organizing financial transactions'
+---
+
+## Overview
+
+Categories help you organize and classify your financial movements. WalletSync supports two types of categories: `EXPENSE` for outgoing payments and `INCOME` for incoming money. You can also create word associations to automatically categorize transactions.
+
+## Category Endpoints
+
+All category operations are available under:
+
+```
+/api/categories
+```
+
+## Category Types
+
+Categories must be one of two types:
+
+| Type | Description | Example |
+|------|-------------|----------|
+| `EXPENSE` | Outgoing payments | Groceries, Rent, Entertainment |
+| `INCOME` | Incoming money | Salary, Freelance, Dividends |
+
+## Creating Categories
+
+### Create a New Category
+
+**Endpoint:** `POST /api/categories`
+
+**Request Body:**
+```json
+{
+  "categoryName": "Groceries",
+  "categoryType": "EXPENSE"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": 1,
+  "categoryName": "Groceries",
+  "categoryType": "EXPENSE"
+}
+```
+
+### API Examples
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:8080/api/categories \
+  -H "Content-Type: application/json" \
+  -d '{
+    "categoryName": "Groceries",
+    "categoryType": "EXPENSE"
+  }'
+```
+
+```bash HTTPie
+http POST http://localhost:8080/api/categories \
+  categoryName="Groceries" \
+  categoryType="EXPENSE"
+```
+
+```javascript JavaScript (Fetch)
+fetch('http://localhost:8080/api/categories', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    categoryName: 'Groceries',
+    categoryType: 'EXPENSE'
+  })
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+</CodeGroup>
+
+### Example Categories
+
+<CodeGroup>
+```json Expense Categories
+// Entertainment
+{
+  "categoryName": "Entertainment",
+  "categoryType": "EXPENSE"
+}
+
+// Transportation
+{
+  "categoryName": "Transportation",
+  "categoryType": "EXPENSE"
+}
+
+// Utilities
+{
+  "categoryName": "Utilities",
+  "categoryType": "EXPENSE"
+}
+```
+
+```json Income Categories
+// Salary
+{
+  "categoryName": "Salary",
+  "categoryType": "INCOME"
+}
+
+// Freelance Work
+{
+  "categoryName": "Freelance",
+  "categoryType": "INCOME"
+}
+
+// Investments
+{
+  "categoryName": "Dividends",
+  "categoryType": "INCOME"
+}
+```
+</CodeGroup>
+
+## Listing Categories
+
+### Get All Categories
+
+**Endpoint:** `GET /api/categories`
+
+**Response (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "categoryName": "Groceries",
+    "categoryType": "EXPENSE"
+  },
+  {
+    "id": 2,
+    "categoryName": "Salary",
+    "categoryType": "INCOME"
+  },
+  {
+    "id": 3,
+    "categoryName": "Entertainment",
+    "categoryType": "EXPENSE"
+  }
+]
+```
+
+**API Examples:**
+
+<CodeGroup>
+```bash cURL
+curl http://localhost:8080/api/categories
+```
+
+```bash HTTPie
+http GET http://localhost:8080/api/categories
+```
+
+```javascript JavaScript
+fetch('http://localhost:8080/api/categories')
+  .then(response => response.json())
+  .then(categories => console.log(categories));
+```
+</CodeGroup>
+
+### Get Category by ID
+
+**Endpoint:** `GET /api/categories/{id}`
+
+**Response (200 OK):**
+```json
+{
+  "id": 1,
+  "categoryName": "Groceries",
+  "categoryType": "EXPENSE"
+}
+```
+
+**Example:**
+```bash
+curl http://localhost:8080/api/categories/1
+```
+
+## Deleting Categories
+
+### Delete a Category
+
+**Endpoint:** `DELETE /api/categories/{id}`
+
+**Response (204 No Content):** Category deleted successfully
+
+**Response (500 Internal Server Error):** Deletion failed
+
+**API Examples:**
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE http://localhost:8080/api/categories/1
+```
+
+```bash HTTPie
+http DELETE http://localhost:8080/api/categories/1
+```
+
+```javascript JavaScript
+fetch('http://localhost:8080/api/categories/1', {
+  method: 'DELETE'
+})
+.then(response => {
+  if (response.status === 204) {
+    console.log('Category deleted successfully');
+  }
+});
+```
+</CodeGroup>
+
+<Warning>
+  Deleting a category may affect associated transactions and word associations. Ensure the category is no longer needed before deletion.
+</Warning>
+
+## Category Associations
+
+Word associations allow automatic categorization of transactions based on description patterns.
+
+### Association Endpoints
+
+All association operations are available under:
+
+```
+/api/associations
+```
+
+## Creating Associations
+
+### Create Word Association
+
+**Endpoint:** `POST /api/associations`
+
+**Request Body:**
+```json
+{
+  "associationWord": "Netflix",
+  "categoryId": 3
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "id": 1,
+  "associationWord": "Netflix",
+  "categoryId": 3,
+  "categoryName": "Entertainment"
+}
+```
+
+<Note>
+  The response includes `categoryName` for convenience, but you only need to provide `associationWord` and `categoryId` when creating.
+</Note>
+
+### API Examples
+
+<CodeGroup>
+```bash cURL
+curl -X POST http://localhost:8080/api/associations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "associationWord": "Netflix",
+    "categoryId": 3
+  }'
+```
+
+```bash HTTPie
+http POST http://localhost:8080/api/associations \
+  associationWord="Netflix" \
+  categoryId:=3
+```
+
+```javascript JavaScript
+fetch('http://localhost:8080/api/associations', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    associationWord: 'Netflix',
+    categoryId: 3
+  })
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+</CodeGroup>
+
+### Example Associations
+
+<Steps>
+  <Step title="Create Entertainment category">
+    ```bash
+    curl -X POST http://localhost:8080/api/categories \
+      -H "Content-Type: application/json" \
+      -d '{"categoryName": "Entertainment", "categoryType": "EXPENSE"}'
+    ```
+  </Step>
+  <Step title="Associate Netflix with Entertainment">
+    ```bash
+    curl -X POST http://localhost:8080/api/associations \
+      -H "Content-Type: application/json" \
+      -d '{"associationWord": "Netflix", "categoryId": 3}'
+    ```
+  </Step>
+  <Step title="Associate Spotify with Entertainment">
+    ```bash
+    curl -X POST http://localhost:8080/api/associations \
+      -H "Content-Type: application/json" \
+      -d '{"associationWord": "Spotify", "categoryId": 3}'
+    ```
+  </Step>
+</Steps>
+
+### Common Association Patterns
+
+<CodeGroup>
+```json Groceries
+// Supermarkets
+{"associationWord": "Mercadona", "categoryId": 1}
+{"associationWord": "Carrefour", "categoryId": 1}
+{"associationWord": "Lidl", "categoryId": 1}
+```
+
+```json Transportation
+// Public transport and fuel
+{"associationWord": "Metro", "categoryId": 2}
+{"associationWord": "Renfe", "categoryId": 2}
+{"associationWord": "Repsol", "categoryId": 2}
+{"associationWord": "Cepsa", "categoryId": 2}
+```
+
+```json Entertainment
+// Streaming and subscriptions
+{"associationWord": "Netflix", "categoryId": 3}
+{"associationWord": "Spotify", "categoryId": 3}
+{"associationWord": "Prime Video", "categoryId": 3}
+```
+
+```json Utilities
+// Bills and services
+{"associationWord": "Iberdrola", "categoryId": 4}
+{"associationWord": "Vodafone", "categoryId": 4}
+{"associationWord": "Orange", "categoryId": 4}
+```
+</CodeGroup>
+
+## Listing Associations
+
+### Get All Associations
+
+**Endpoint:** `GET /api/associations`
+
+**Response (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "associationWord": "Netflix",
+    "categoryId": 3,
+    "categoryName": "Entertainment"
+  },
+  {
+    "id": 2,
+    "associationWord": "Spotify",
+    "categoryId": 3,
+    "categoryName": "Entertainment"
+  },
+  {
+    "id": 3,
+    "associationWord": "Mercadona",
+    "categoryId": 1,
+    "categoryName": "Groceries"
+  }
+]
+```
+
+**Example:**
+```bash
+curl http://localhost:8080/api/associations
+```
+
+## Deleting Associations
+
+### Delete an Association
+
+**Endpoint:** `DELETE /api/associations/{id}`
+
+**Response (204 No Content):** Association deleted successfully
+
+**API Examples:**
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE http://localhost:8080/api/associations/1
+```
+
+```bash HTTPie
+http DELETE http://localhost:8080/api/associations/1
+```
+
+```javascript JavaScript
+fetch('http://localhost:8080/api/associations/1', {
+  method: 'DELETE'
+})
+.then(response => {
+  if (response.status === 204) {
+    console.log('Association deleted');
+  }
+});
+```
+</CodeGroup>
+
+## Controller Implementation
+
+### Category Controller
+
+Here's the implementation of the category management endpoints:
+
+```java
+@RestController
+@RequestMapping("/api/categories")
+@RequiredArgsConstructor
+public class CategoryController {
+
+    private final CategoryService categoryService;
+
+    @GetMapping
+    public ResponseEntity<List<CategoryDTO>> getAll() {
+        return ResponseEntity.ok(categoryService.findAll());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<CategoryDTO> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(categoryService.findById(id));
+    }
+
+    @PostMapping
+    public ResponseEntity<CategoryDTO> create(@RequestBody CategoryDTO categoryDTO) {
+        CategoryDTO savedCategory = categoryService.save(categoryDTO);
+        return new ResponseEntity<>(savedCategory, HttpStatus.CREATED);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        boolean response = categoryService.delete(id);
+        if(response) {
+            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        } else {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+}
+```
+
+**Source:** `CategoryController.java:12-44`
+
+### Association Controller
+
+```java
+@RestController
+@RequestMapping("/api/associations")
+@RequiredArgsConstructor
+public class MovementCategoryAssociationController {
+
+    private final MovementCategoryAssociationService associationService;
+
+    @GetMapping
+    public ResponseEntity<List<MovementAssociationDTO>> getAll() {
+        return ResponseEntity.ok(associationService.findAll());
+    }
+
+    @PostMapping
+    public ResponseEntity<MovementAssociationDTO> create(
+        @RequestBody MovementAssociationDTO dto) {
+        MovementAssociationDTO saved = associationService.save(dto);
+        return new ResponseEntity<>(saved, HttpStatus.CREATED);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        associationService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+}
+```
+
+**Source:** `MovementCategoryAssociationController.java:12-36`
+
+## Data Transfer Objects
+
+### CategoryDTO
+
+```java
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class CategoryDTO {
+    private Long id;
+    private String categoryName;
+    private String categoryType; // "EXPENSE" or "INCOME"
+}
+```
+
+**Source:** `CategoryDTO.java:10-14`
+
+### MovementAssociationDTO
+
+```java
+@Data
+public class MovementAssociationDTO {
+    private Long id;
+    private String associationWord;
+    private Long categoryId;
+    private String categoryName; // Read-only, populated by service
+}
+```
+
+**Source:** `MovementAssociationDTO.java:6-11`
+
+## Complete Workflow Example
+
+Here's a complete example of setting up categories and associations:
+
+<Steps>
+  <Step title="Create expense categories">
+    ```bash
+    # Groceries
+    curl -X POST http://localhost:8080/api/categories \
+      -H "Content-Type: application/json" \
+      -d '{"categoryName": "Groceries", "categoryType": "EXPENSE"}'
+    
+    # Entertainment
+    curl -X POST http://localhost:8080/api/categories \
+      -H "Content-Type: application/json" \
+      -d '{"categoryName": "Entertainment", "categoryType": "EXPENSE"}'
+    ```
+  </Step>
+  <Step title="Create income categories">
+    ```bash
+    # Salary
+    curl -X POST http://localhost:8080/api/categories \
+      -H "Content-Type: application/json" \
+      -d '{"categoryName": "Salary", "categoryType": "INCOME"}'
+    ```
+  </Step>
+  <Step title="Create word associations">
+    ```bash
+    # Associate supermarkets with Groceries (id: 1)
+    curl -X POST http://localhost:8080/api/associations \
+      -H "Content-Type: application/json" \
+      -d '{"associationWord": "Mercadona", "categoryId": 1}'
+    
+    # Associate Netflix with Entertainment (id: 2)
+    curl -X POST http://localhost:8080/api/associations \
+      -H "Content-Type: application/json" \
+      -d '{"associationWord": "Netflix", "categoryId": 2}'
+    ```
+  </Step>
+  <Step title="Verify setup">
+    ```bash
+    # List all categories
+    curl http://localhost:8080/api/categories
+    
+    # List all associations
+    curl http://localhost:8080/api/associations
+    ```
+  </Step>
+</Steps>
+
+## Next Steps
+
+<Card title="PDF Upload" icon="file-pdf" href="/guides/pdf-upload">
+  Upload Santander PDF statements to automatically import transactions
+</Card>

@@ -1,0 +1,250 @@
+---
+title: 'Movement-Category Associations'
+description: 'Create automatic category assignments based on transaction keywords'
+---
+
+## Overview
+
+The Movement-Category Associations API enables automatic categorization of payment movements based on keywords. When a transaction label contains a specific word (e.g., "NETFLIX"), it can be automatically assigned to the corresponding category (e.g., "Entertainment").
+
+This feature streamlines transaction management by eliminating manual categorization for recurring transactions.
+
+## Endpoints
+
+### List All Associations
+
+Retrieves all configured movement-category associations.
+
+```bash
+GET /api/associations
+```
+
+**Example Request**
+
+```bash
+curl -X GET http://localhost:8080/api/associations
+```
+
+**Response**
+
+<ResponseField name="associations" type="array">
+  Array of association objects
+  
+  <ResponseField name="id" type="long">
+    Unique identifier for the association
+  </ResponseField>
+  
+  <ResponseField name="associationWord" type="string">
+    Keyword to match in transaction labels
+  </ResponseField>
+  
+  <ResponseField name="categoryId" type="long">
+    ID of the category to assign
+  </ResponseField>
+  
+  <ResponseField name="categoryName" type="string">
+    Name of the associated category (for display purposes)
+  </ResponseField>
+</ResponseField>
+
+**Example Response**
+
+```json
+[
+  {
+    "id": 1,
+    "associationWord": "NETFLIX",
+    "categoryId": 5,
+    "categoryName": "Entertainment"
+  },
+  {
+    "id": 2,
+    "associationWord": "SPOTIFY",
+    "categoryId": 5,
+    "categoryName": "Entertainment"
+  },
+  {
+    "id": 3,
+    "associationWord": "GROCERY",
+    "categoryId": 2,
+    "categoryName": "Groceries"
+  }
+]
+```
+
+---
+
+### Create Association
+
+Creates a new movement-category association.
+
+```bash
+POST /api/associations
+```
+
+**Request Body**
+
+<ParamField body="associationWord" type="string" required>
+  The keyword to match in transaction labels. Case-sensitive matching is typically used.
+</ParamField>
+
+<ParamField body="categoryId" type="long" required>
+  The ID of the category to automatically assign when this keyword is found.
+</ParamField>
+
+<Note>
+  You only need to provide `associationWord` and `categoryId`. The `categoryName` is automatically populated for display purposes.
+</Note>
+
+**Example Request**
+
+```bash
+curl -X POST http://localhost:8080/api/associations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "associationWord": "NETFLIX",
+    "categoryId": 5
+  }'
+```
+
+**Response**
+
+Returns the created association with its generated ID and populated category name (HTTP 201 Created).
+
+```json
+{
+  "id": 1,
+  "associationWord": "NETFLIX",
+  "categoryId": 5,
+  "categoryName": "Entertainment"
+}
+```
+
+---
+
+### Delete Association
+
+Deletes a movement-category association by its ID.
+
+```bash
+DELETE /api/associations/{id}
+```
+
+**Path Parameters**
+
+<ParamField path="id" type="long" required>
+  The unique identifier of the association to delete
+</ParamField>
+
+**Example Request**
+
+```bash
+curl -X DELETE http://localhost:8080/api/associations/1
+```
+
+**Response**
+
+Returns HTTP 204 No Content on successful deletion.
+
+---
+
+## Data Models
+
+### MovementAssociationDTO
+
+Represents a keyword-based rule for automatic category assignment.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Long | Unique identifier (auto-generated) |
+| `associationWord` | String | Keyword to match in transaction labels |
+| `categoryId` | Long | ID of the category to assign |
+| `categoryName` | String | Name of the category (auto-populated) |
+
+---
+
+## How Associations Work
+
+When you create an association:
+
+1. The system stores the `associationWord` and `categoryId` pair
+2. When movements are processed (e.g., via PDF upload or bulk operations), the system:
+   - Scans each transaction's `operationLabel`
+   - Checks if any association keyword is present
+   - Automatically assigns the movement to the matched category
+
+### Example Workflow
+
+```bash
+# 1. Create a category
+curl -X POST http://localhost:8080/api/categories \
+  -H "Content-Type: application/json" \
+  -d '{
+    "categoryName": "Entertainment",
+    "categoryType": "EXPENSE"
+  }'
+# Response: {"id": 5, "categoryName": "Entertainment", "categoryType": "EXPENSE"}
+
+# 2. Create an association
+curl -X POST http://localhost:8080/api/associations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "associationWord": "NETFLIX",
+    "categoryId": 5
+  }'
+
+# 3. Create a movement with "NETFLIX" in the label
+curl -X POST http://localhost:8080/api/payments/santander \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationDate": "2024-01-15",
+    "operationLabel": "NETFLIX SUBSCRIPTION",
+    "amount": -15.99,
+    "balance": 1234.56
+  }'
+
+# 4. Retrieve movements with categories
+curl -X GET http://localhost:8080/api/payments/santander/inCategories
+# The NETFLIX movement will automatically appear under "Entertainment" category
+```
+
+---
+
+## Best Practices
+
+1. **Unique Keywords** - Use distinctive keywords that clearly identify specific merchants or transaction types
+2. **Case Sensitivity** - Be aware of how your bank formats transaction labels (usually uppercase)
+3. **Specificity** - Use specific keywords (e.g., "NETFLIX" not "NET") to avoid false matches
+4. **Regular Review** - Periodically review and update associations as your spending patterns change
+5. **Test Before Bulk Import** - Create a few associations and test with sample transactions before processing large PDF imports
+
+---
+
+## Common Use Cases
+
+### Subscription Services
+```json
+[
+  {"associationWord": "NETFLIX", "categoryId": 5},
+  {"associationWord": "SPOTIFY", "categoryId": 5},
+  {"associationWord": "AMAZON PRIME", "categoryId": 5}
+]
+```
+
+### Groceries
+```json
+[
+  {"associationWord": "WALMART", "categoryId": 2},
+  {"associationWord": "KROGER", "categoryId": 2},
+  {"associationWord": "WHOLE FOODS", "categoryId": 2}
+]
+```
+
+### Transportation
+```json
+[
+  {"associationWord": "UBER", "categoryId": 8},
+  {"associationWord": "SHELL", "categoryId": 8},
+  {"associationWord": "PARKING", "categoryId": 8}
+]
+```

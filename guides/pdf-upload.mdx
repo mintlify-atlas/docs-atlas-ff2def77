@@ -1,0 +1,341 @@
+---
+title: 'PDF Upload'
+description: 'Upload and process Santander bank PDF statements automatically'
+---
+
+## Overview
+
+WalletSync can automatically parse Santander bank PDF statements and extract payment movements. The PDF parser identifies transaction dates, descriptions, amounts, and account balances.
+
+## Upload Endpoint
+
+The PDF upload functionality is available at:
+
+```
+POST /api/payments/santander/upload-pdf
+```
+
+### Request Format
+
+The endpoint accepts multipart form data with a single file parameter:
+
+- **Parameter name:** `file`
+- **Content type:** `application/pdf` or `multipart/form-data`
+- **File type:** PDF document from Santander bank
+
+### Response
+
+**Success (200 OK):**
+```json
+"Archivo PDF procesado y movimientos guardados exitosamente."
+```
+
+**Error (400 Bad Request):**
+```json
+"Por favor seleccione un archivo PDF."
+```
+
+**Error (500 Internal Server Error):**
+```json
+"Error al procesar el archivo: <error message>"
+```
+
+## API Examples
+
+### Using cURL
+
+<CodeGroup>
+```bash Basic Upload
+curl -X POST http://localhost:8080/api/payments/santander/upload-pdf \
+  -F "file=@/path/to/santander-statement.pdf"
+```
+
+```bash With Verbose Output
+curl -v -X POST http://localhost:8080/api/payments/santander/upload-pdf \
+  -F "file=@/path/to/santander-statement.pdf" \
+  -H "Accept: application/json"
+```
+
+```bash Save Response
+curl -X POST http://localhost:8080/api/payments/santander/upload-pdf \
+  -F "file=@statement.pdf" \
+  -o response.txt
+```
+</CodeGroup>
+
+### Using HTTPie
+
+```bash
+http -f POST http://localhost:8080/api/payments/santander/upload-pdf \
+  file@santander-statement.pdf
+```
+
+### Using Postman
+
+<Steps>
+  <Step title="Create POST request">
+    Set method to `POST` and URL to `http://localhost:8080/api/payments/santander/upload-pdf`
+  </Step>
+  <Step title="Configure Body">
+    Select **Body** → **form-data**
+  </Step>
+  <Step title="Add file parameter">
+    Add key `file` with type **File**, then choose your PDF file
+  </Step>
+  <Step title="Send request">
+    Click **Send** to upload and process the PDF
+  </Step>
+</Steps>
+
+## How PDF Parsing Works
+
+The `PdfParserService` extracts transaction data from Santander PDF statements using pattern matching and regular expressions.
+
+### Extraction Process
+
+<Steps>
+  <Step title="Load PDF document">
+    The service uses Apache PDFBox to load and read the PDF file
+  </Step>
+  <Step title="Extract text content">
+    All text is extracted from the PDF and split into lines
+  </Step>
+  <Step title="Parse transaction data">
+    Each line is analyzed to identify dates, descriptions, amounts, and balances
+  </Step>
+  <Step title="Validate and synchronize">
+    Data lists are validated for consistency and converted to DTOs
+  </Step>
+  <Step title="Save to database">
+    Valid movements are saved using the SantanderPaymentMovementService
+  </Step>
+</Steps>
+
+### Pattern Detection
+
+The parser identifies different types of data using specific patterns:
+
+**Date Pattern:**
+```regex
+^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/\d{4}
+```
+Matches dates in `dd/MM/yyyy` format (e.g., `15/03/2026`)
+
+**Amount Pattern:**
+```regex
+(-?\d+(?:\.\d{3})*,\d{2})$
+```
+Matches Spanish number format with thousands separator (e.g., `1.234,56` or `-45,00`)
+
+**Transaction Keywords:**
+- `Compra` (Purchase)
+- `Devolucion` (Refund)
+- `Transaccion` (Transaction)
+- `Bizum` (Bizum payment)
+- `Recibo` (Bill)
+
+<Note>
+  The parser automatically converts Spanish number format (`1.234,56`) to standard decimal format (`1234.56`).
+</Note>
+
+## Controller Implementation
+
+Here's how the upload controller processes PDF files:
+
+```java
+@RestController
+@RequestMapping("/api/payments/santander")
+@RequiredArgsConstructor
+public class SantanderFileUploadController {
+
+    private final PdfParserService pdfParserService;
+    private final SantanderPaymentMovementService santanderPaymentMovementService;
+
+    @PostMapping("/upload-pdf")
+    public ResponseEntity<String> uploadPdf(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest()
+                .body("Por favor seleccione un archivo PDF.");
+        }
+
+        try {
+            // Parse PDF and extract movements
+            List<SantanderPaymentMovementDTO> movimientos = 
+                pdfParserService.extractMovements(file);
+
+            // Save movements to database
+            santanderPaymentMovementService.saveList(movimientos);
+
+            return ResponseEntity.ok(
+                "Archivo PDF procesado y movimientos guardados exitosamente."
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Error al procesar el archivo: " + e.getMessage());
+        }
+    }
+}
+```
+
+**Source:** `SantanderFileUploadController.java:26-48`
+
+## Parser Service Details
+
+### Key Methods
+
+**extractMovements()**
+
+The main parsing method that processes the entire PDF:
+
+```java
+public List<SantanderPaymentMovementDTO> extractMovements(MultipartFile file) 
+    throws IOException {
+    
+    List<SantanderPaymentMovementDTO> movements = new ArrayList<>();
+    List<LocalDate> operationDateList = new ArrayList<>();
+    List<String> operationLabelList = new ArrayList<>();
+    List<BigDecimal> operationAmountList = new ArrayList<>();
+    List<BigDecimal> operationBalanceList = new ArrayList<>();
+
+    try (PDDocument document = Loader.loadPDF(file.getBytes())) {
+        PDFTextStripper stripper = new PDFTextStripper();
+        String text = stripper.getText(document);
+        String[] lines = text.split("\\r?\\n");
+
+        for (String line : lines) {
+            String trimmedLine = line.trim();
+
+            // Extract dates
+            if (isDateFormat(trimmedLine)) {
+                operationDateList.add(
+                    LocalDate.parse(trimmedLine, DATE_FORMATTER)
+                );
+            }
+
+            // Extract descriptions
+            if(trimmedLine.contains("Compra") || 
+               trimmedLine.contains("Devolucion") ||
+               trimmedLine.contains("Transaccion") || 
+               trimmedLine.contains("Bizum") ||
+               trimmedLine.contains("Recibo")){
+                operationLabelList.add(trimmedLine);
+            }
+
+            // Extract amounts and balances
+            if(trimmedLine.contains(" EUR ")){
+                String[] partes = trimmedLine.split("EUR");
+                if (partes.length >= 2) {
+                    String importeConDescripcion = partes[0].trim();
+                    Matcher matcher = AMOUNT_PATTERN.matcher(importeConDescripcion);
+
+                    if (matcher.find()) {
+                        operationAmountList.add(cleanAndParse(matcher.group(1)));
+                        operationBalanceList.add(cleanAndParse(partes[1].trim()));
+                    }
+                }
+            }
+        }
+    }
+    
+    // Validation and DTO creation...
+}
+```
+
+**Source:** `PdfParserService.java:28-106`
+
+<Warning>
+  The parser removes the first two entries from amount and balance lists as they typically contain header information from the PDF.
+</Warning>
+
+### Data Validation
+
+Before creating movement DTOs, the parser validates that all data lists have matching sizes:
+
+```java
+if(size == operationLabelList.size() && 
+   size == operationAmountList.size() && 
+   size == operationBalanceList.size()){
+    // Create DTOs
+    for(int i = 0; i < size; i++){
+        movements.add(new SantanderPaymentMovementDTO(
+            null,
+            operationDateList.get(i),
+            operationLabelList.get(i),
+            operationAmountList.get(i),
+            operationBalanceList.get(i)
+        ));
+    }
+} else {
+    log.error("DESINCRONIZACIÓN DETECTADA: Las listas tienen tamaños diferentes.");
+}
+```
+
+**Source:** `PdfParserService.java:90-103`
+
+## Logging and Debugging
+
+The parser includes comprehensive logging at different levels:
+
+```java
+@Slf4j
+public class PdfParserService {
+    
+    // Info level - processing status
+    log.info("Iniciando el procesamiento del archivo PDF: {}", 
+             file.getOriginalFilename());
+    
+    // Debug level - detailed extraction info
+    log.debug("Se han extraído {} líneas del PDF", lines.length);
+    
+    // Warning level - potential issues
+    log.warn("Se encontró 'EUR' pero el patrón de importe falló en la línea: {}", 
+             trimmedLine);
+    
+    // Error level - critical failures
+    log.error("Error crítico al procesar el PDF {}: {}", 
+              file.getOriginalFilename(), e.getMessage(), e);
+}
+```
+
+<Note>
+  Enable DEBUG logging for `com.mymoney.walletsync` in `application.properties` to see detailed parsing information.
+</Note>
+
+## Troubleshooting
+
+### Common Issues
+
+**Empty file error:**
+```
+Por favor seleccione un archivo PDF.
+```
+Ensure the file parameter is correctly set and contains data.
+
+**Desynchronization error:**
+```
+DESINCRONIZACIÓN DETECTADA: Las listas tienen tamaños diferentes.
+```
+The PDF format may have changed. Check the logs to see which data extraction failed.
+
+**Pattern matching failures:**
+```
+Se encontró 'EUR' pero el patrón de importe falló
+```
+The amount format in the PDF doesn't match the expected pattern. Verify the PDF is from Santander.
+
+### Testing the Endpoint
+
+You can test the endpoint with a sample PDF:
+
+```bash
+# Download a sample statement (replace with actual file)
+curl -X POST http://localhost:8080/api/payments/santander/upload-pdf \
+  -F "file=@santander-march-2026.pdf" \
+  -v
+```
+
+## Next Steps
+
+<Card title="Managing Categories" icon="folder" href="/guides/managing-categories">
+  Learn how to categorize and organize your transactions
+</Card>

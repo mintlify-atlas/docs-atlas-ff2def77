@@ -1,0 +1,221 @@
+---
+title: 'PDF Upload'
+description: 'Import Santander bank statements by uploading PDF files'
+---
+
+## Overview
+
+The PDF Upload API allows you to extract payment movements directly from Santander bank statement PDFs. The system automatically parses the PDF, extracts transaction data, and saves the movements to your database.
+
+This feature significantly reduces manual data entry by automating the import of bank transactions.
+
+## Endpoint
+
+### Upload Bank Statement PDF
+
+Uploads and processes a Santander bank statement PDF file.
+
+```bash
+POST /api/payments/santander/upload-pdf
+```
+
+**Content Type**
+
+`multipart/form-data`
+
+**Request Parameters**
+
+<ParamField body="file" type="file" required>
+  The PDF file containing the Santander bank statement. Must be a valid PDF file.
+</ParamField>
+
+**Example Request**
+
+```bash
+curl -X POST http://localhost:8080/api/payments/santander/upload-pdf \
+  -F "file=@/path/to/statement.pdf"
+```
+
+**Response**
+
+Returns a success message as plain text (HTTP 200 OK).
+
+<ResponseField name="message" type="string">
+  Success or error message describing the upload result
+</ResponseField>
+
+**Success Response**
+
+```
+Archivo PDF procesado y movimientos guardados exitosamente.
+```
+
+**Error Responses**
+
+- **HTTP 400 Bad Request** - Empty file uploaded
+  ```
+  Por favor seleccione un archivo PDF.
+  ```
+
+- **HTTP 500 Internal Server Error** - Processing failed
+  ```
+  Error al procesar el archivo: [error details]
+  ```
+
+---
+
+## Complete Upload Example
+
+### Using cURL
+
+```bash
+curl -X POST http://localhost:8080/api/payments/santander/upload-pdf \
+  -H "Accept: text/plain" \
+  -F "file=@santander_statement_jan_2024.pdf"
+```
+
+### Using Postman
+
+1. Set method to **POST**
+2. Enter URL: `http://localhost:8080/api/payments/santander/upload-pdf`
+3. Go to **Body** tab
+4. Select **form-data**
+5. Add key `file` with type **File**
+6. Choose your PDF file
+7. Click **Send**
+
+### Using JavaScript (fetch)
+
+```javascript
+const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+
+fetch('http://localhost:8080/api/payments/santander/upload-pdf', {
+  method: 'POST',
+  body: formData
+})
+  .then(response => response.text())
+  .then(message => console.log(message))
+  .catch(error => console.error('Upload failed:', error));
+```
+
+### Using Python (requests)
+
+```python
+import requests
+
+url = 'http://localhost:8080/api/payments/santander/upload-pdf'
+files = {'file': open('statement.pdf', 'rb')}
+
+response = requests.post(url, files=files)
+print(response.text)
+```
+
+---
+
+## PDF Processing Workflow
+
+When you upload a PDF, the system performs the following steps:
+
+1. **Validation**
+   - Checks if the file is not empty
+   - Validates that it's a proper PDF format
+
+2. **PDF Parsing**
+   - Extracts transaction data from the PDF using the `PdfParserService`
+   - Parses operation dates, labels, amounts, and balances
+   - Converts data into `SantanderPaymentMovementDTO` objects
+
+3. **Duplicate Detection**
+   - Checks if movements have already been registered (planned feature)
+   - Prevents duplicate entries
+
+4. **Batch Save**
+   - Saves all extracted movements to the database
+   - Uses the bulk save endpoint internally for efficiency
+
+5. **Category Association**
+   - Automatically applies category associations based on transaction labels
+   - Matches keywords from the `/api/associations` configuration
+
+---
+
+## Expected PDF Format
+
+The parser expects Santander bank statement PDFs with the following structure:
+
+- **Operation Date** - Date of the transaction
+- **Operation Label** - Transaction description/merchant
+- **Amount** - Transaction amount (negative for expenses, positive for income)
+- **Balance** - Account balance after the transaction
+
+<Note>
+  The exact parsing logic depends on your Santander bank's PDF format. Ensure your `PdfParserService` implementation matches your bank's statement layout.
+</Note>
+
+---
+
+## Best Practices
+
+1. **File Size** - Keep PDF files under 10MB for optimal processing speed
+2. **File Naming** - Use descriptive names like `santander_statement_2024_01.pdf`
+3. **One Statement at a Time** - Upload one PDF per month or statement period
+4. **Verify Results** - After upload, use `GET /api/payments/santander` to verify imported movements
+5. **Set Up Associations First** - Create category associations before uploading for automatic categorization
+6. **Error Handling** - Implement retry logic in your client for failed uploads
+
+---
+
+## Troubleshooting
+
+### Upload fails with "Error al procesar el archivo"
+
+- Verify the PDF is not corrupted
+- Ensure it's a genuine Santander statement PDF
+- Check server logs for detailed parsing errors
+- Confirm the PDF format matches the expected structure
+
+### Movements are imported but not categorized
+
+- Ensure you've created associations via `/api/associations`
+- Check that association keywords match the transaction labels exactly
+- Transaction labels are typically in uppercase in bank statements
+
+### Duplicate movements appear
+
+- The duplicate detection feature may not be fully implemented yet
+- Manually check for existing movements before uploading
+- Use `GET /api/payments/santander` to list existing transactions
+
+---
+
+## Integration Example
+
+Complete workflow for uploading and verifying a bank statement:
+
+```bash
+# 1. Upload the PDF
+curl -X POST http://localhost:8080/api/payments/santander/upload-pdf \
+  -F "file=@statement_jan_2024.pdf"
+
+# Response: Archivo PDF procesado y movimientos guardados exitosamente.
+
+# 2. Verify the imported movements
+curl -X GET http://localhost:8080/api/payments/santander
+
+# 3. Check categorized movements
+curl -X GET http://localhost:8080/api/payments/santander/inCategories
+
+# 4. View movements by year
+curl -X GET http://localhost:8080/api/payments/santander/inCategoriesByYear/2024
+```
+
+---
+
+## Security Considerations
+
+1. **Authentication** - Implement authentication to restrict upload access
+2. **File Type Validation** - Ensure only PDF files are accepted
+3. **File Size Limits** - Set maximum file size limits to prevent abuse
+4. **Virus Scanning** - Consider scanning uploaded files for malware
+5. **Rate Limiting** - Implement rate limiting to prevent spam uploads

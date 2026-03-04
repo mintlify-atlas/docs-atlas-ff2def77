@@ -1,0 +1,207 @@
+---
+title: 'Authentication'
+description: 'Security and authentication guidance for WalletSync API'
+---
+
+## Current Status
+
+<Warning>
+The WalletSync API currently **does not implement any authentication mechanism**. All endpoints are publicly accessible without requiring credentials.
+</Warning>
+
+This configuration is suitable for:
+- Local development and testing
+- Personal use on a secure, private network
+- Proof-of-concept implementations
+
+<Note>
+For production deployments or multi-user environments, implementing proper authentication and authorization is strongly recommended.
+</Note>
+
+## Adding Authentication
+
+If you need to secure your WalletSync API, consider implementing one of the following authentication strategies:
+
+### Spring Security with JWT
+
+JSON Web Tokens (JWT) provide a stateless authentication mechanism ideal for REST APIs.
+
+<Steps>
+  <Step title="Add Spring Security Dependency">
+    Add the following to your `pom.xml`:
+    
+    ```xml
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>io.jsonwebtoken</groupId>
+        <artifactId>jjwt-api</artifactId>
+        <version>0.11.5</version>
+    </dependency>
+    ```
+  </Step>
+  
+  <Step title="Configure Security">
+    Create a `SecurityConfig` class to define authentication rules:
+    
+    ```java
+    @Configuration
+    @EnableWebSecurity
+    public class SecurityConfig {
+        
+        @Bean
+        public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+            http
+                .csrf().disable()
+                .authorizeHttpRequests(auth -> auth
+                    .requestMatchers("/api/auth/**").permitAll()
+                    .anyRequest().authenticated()
+                )
+                .sessionManagement()
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+            
+            return http.build();
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Implement JWT Generation">
+    Create a service to generate and validate JWT tokens for authenticated users.
+  </Step>
+  
+  <Step title="Add Authentication Controller">
+    Create endpoints for user registration and login that return JWT tokens.
+  </Step>
+</Steps>
+
+### Basic Authentication
+
+For simpler use cases, HTTP Basic Authentication can be implemented quickly.
+
+```java
+@Configuration
+public class SecurityConfig {
+    
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests(auth -> auth
+                .anyRequest().authenticated()
+            )
+            .httpBasic();
+        
+        return http.build();
+    }
+    
+    @Bean
+    public UserDetailsService userDetailsService() {
+        UserDetails user = User.withDefaultPasswordEncoder()
+            .username("user")
+            .password("password")
+            .roles("USER")
+            .build();
+        
+        return new InMemoryUserDetailsManager(user);
+    }
+}
+```
+
+<Warning>
+Basic Authentication sends credentials with every request. Always use HTTPS in production to prevent credential interception.
+</Warning>
+
+### OAuth 2.0
+
+For more complex scenarios or integration with third-party identity providers:
+
+- Use Spring Security OAuth 2.0 Client
+- Integrate with providers like Google, GitHub, or Auth0
+- Ideal for applications requiring social login or federated identity
+
+## Security Best Practices
+
+When implementing authentication for WalletSync, follow these security guidelines:
+
+<AccordionGroup>
+  <Accordion title="Use HTTPS in Production">
+    Always deploy your API behind HTTPS to encrypt data in transit and protect credentials from interception.
+  </Accordion>
+  
+  <Accordion title="Store Passwords Securely">
+    Use bcrypt or other strong hashing algorithms. Never store plain-text passwords in the database.
+    
+    ```java
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Implement Rate Limiting">
+    Protect authentication endpoints from brute-force attacks by implementing rate limiting on login attempts.
+  </Accordion>
+  
+  <Accordion title="Use Environment Variables">
+    Store sensitive configuration (JWT secrets, database credentials) in environment variables, not in code.
+    
+    ```properties
+    jwt.secret=${JWT_SECRET}
+    spring.datasource.password=${DB_PASSWORD}
+    ```
+  </Accordion>
+  
+  <Accordion title="Enable CORS Properly">
+    Configure CORS to allow only trusted origins to access your API.
+    
+    ```java
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE"));
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="Implement Authorization">
+    Beyond authentication, implement role-based access control (RBAC) to restrict which users can access specific endpoints.
+  </Accordion>
+</AccordionGroup>
+
+## Resources
+
+For more information on securing Spring Boot applications:
+
+<CardGroup cols={2}>
+  <Card title="Spring Security Documentation" icon="book" href="https://docs.spring.io/spring-security/reference/index.html">
+    Official Spring Security reference guide
+  </Card>
+  <Card title="JWT Introduction" icon="key" href="https://jwt.io/introduction">
+    Learn about JSON Web Tokens
+  </Card>
+  <Card title="OWASP Top 10" icon="shield" href="https://owasp.org/www-project-top-ten/">
+    Web application security risks
+  </Card>
+  <Card title="Spring Boot Security Tutorial" icon="graduation-cap" href="https://spring.io/guides/gs/securing-web/">
+    Getting started with Spring Security
+  </Card>
+</CardGroup>
+
+## Testing Authentication
+
+Once authentication is implemented, test your endpoints with tools like:
+
+- **Postman** - Add authorization headers to requests
+- **cURL** - Use the `-H` flag for headers
+- **HTTPie** - User-friendly CLI HTTP client
+
+<Tip>
+Consider implementing a health check endpoint that doesn't require authentication for monitoring purposes.
+</Tip>

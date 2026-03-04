@@ -1,0 +1,217 @@
+---
+title: 'Categories'
+description: 'Manage expense and income categories for transaction classification'
+---
+
+## Overview
+
+The Categories API allows you to manage financial categories used to classify payment movements. Categories help organize transactions into groups like "Entertainment", "Groceries", "Salary", etc.
+
+## Endpoints
+
+### List All Categories
+
+Retrieves all available categories.
+
+```bash
+GET /api/categories
+```
+
+**Example Request**
+
+```bash
+curl -X GET http://localhost:8080/api/categories
+```
+
+**Response**
+
+<ResponseField name="categories" type="array">
+  Array of category objects
+  
+  <ResponseField name="id" type="long">
+    Unique identifier for the category
+  </ResponseField>
+  
+  <ResponseField name="categoryName" type="string">
+    Name of the category
+  </ResponseField>
+  
+  <ResponseField name="categoryType" type="string">
+    Type of category (e.g., EXPENSE, INCOME)
+  </ResponseField>
+</ResponseField>
+
+**Example Response**
+
+```json
+[
+  {
+    "id": 1,
+    "categoryName": "Entertainment",
+    "categoryType": "EXPENSE"
+  },
+  {
+    "id": 2,
+    "categoryName": "Groceries",
+    "categoryType": "EXPENSE"
+  },
+  {
+    "id": 3,
+    "categoryName": "Salary",
+    "categoryType": "INCOME"
+  }
+]
+```
+
+---
+
+### Get Category by ID
+
+Retrieves a specific category by its ID.
+
+```bash
+GET /api/categories/{id}
+```
+
+**Path Parameters**
+
+<ParamField path="id" type="long" required>
+  The unique identifier of the category
+</ParamField>
+
+**Example Request**
+
+```bash
+curl -X GET http://localhost:8080/api/categories/1
+```
+
+**Response**
+
+<ResponseField name="id" type="long">
+  Unique identifier for the category
+</ResponseField>
+
+<ResponseField name="categoryName" type="string">
+  Name of the category
+</ResponseField>
+
+<ResponseField name="categoryType" type="string">
+  Type of category (e.g., EXPENSE, INCOME)
+</ResponseField>
+
+**Example Response**
+
+```json
+{
+  "id": 1,
+  "categoryName": "Entertainment",
+  "categoryType": "EXPENSE"
+}
+```
+
+---
+
+### Create Category
+
+Creates a new category.
+
+```bash
+POST /api/categories
+```
+
+**Request Body**
+
+<ParamField body="categoryName" type="string" required>
+  Name of the category (e.g., "Transportation", "Dining")
+</ParamField>
+
+<ParamField body="categoryType" type="string" required>
+  Type of category. Common values:
+  - `EXPENSE` - For expense categories
+  - `INCOME` - For income categories
+</ParamField>
+
+**Example Request**
+
+```bash
+curl -X POST http://localhost:8080/api/categories \
+  -H "Content-Type: application/json" \
+  -d '{
+    "categoryName": "Transportation",
+    "categoryType": "EXPENSE"
+  }'
+```
+
+**Response**
+
+Returns the created category with its generated ID (HTTP 201 Created).
+
+```json
+{
+  "id": 4,
+  "categoryName": "Transportation",
+  "categoryType": "EXPENSE"
+}
+```
+
+---
+
+### Delete Category
+
+Deletes a category by its ID.
+
+```bash
+DELETE /api/categories/{id}
+```
+
+**Path Parameters**
+
+<ParamField path="id" type="long" required>
+  The unique identifier of the category to delete
+</ParamField>
+
+**Example Request**
+
+```bash
+curl -X DELETE http://localhost:8080/api/categories/4
+```
+
+**Response**
+
+Returns HTTP 204 No Content on successful deletion, or HTTP 500 Internal Server Error if the deletion fails.
+
+<Note>
+  Be careful when deleting categories that are referenced by movement associations. Consider implementing proper cascade handling or validation in your application.
+</Note>
+
+---
+
+## Data Models
+
+### CategoryDTO
+
+Represents a financial category for classifying transactions.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Long | Unique identifier (auto-generated) |
+| `categoryName` | String | Name of the category |
+| `categoryType` | String | Type of category (EXPENSE, INCOME, etc.) |
+
+---
+
+## Common Category Types
+
+While the `categoryType` field accepts string values, common types include:
+
+- **EXPENSE** - For expense categories like groceries, rent, entertainment
+- **INCOME** - For income categories like salary, freelance, investments
+
+---
+
+## Best Practices
+
+1. **Consistent Naming** - Use clear, descriptive names for categories (e.g., "Dining Out" instead of "Food")
+2. **Category Hierarchy** - Consider using prefixes or naming conventions to group related categories
+3. **Type Consistency** - Always specify the correct `categoryType` to enable proper income vs. expense reporting
+4. **Avoid Duplicates** - Check existing categories before creating new ones to prevent confusion

@@ -1,0 +1,131 @@
+---
+title: 'API Overview'
+description: 'Complete guide to the WalletSync REST API'
+---
+
+## Introduction
+
+WalletSync is a Spring Boot-based REST API designed for personal finance management. It provides endpoints to manage transactions, categories, and category associations, as well as file upload capabilities for bank statements.
+
+## Base URL
+
+All API endpoints are accessible through the following base URL:
+
+```
+http://localhost:8080
+```
+
+## Request and Response Format
+
+The API uses JSON for both request and response payloads. All endpoints accept and return `application/json` content type unless otherwise specified (e.g., file uploads).
+
+<Note>
+Make sure to include the `Content-Type: application/json` header in your requests when sending JSON data.
+</Note>
+
+## Available Endpoints
+
+WalletSync API is organized into the following main resource groups:
+
+### Categories
+
+Manage expense and income categories for transaction classification.
+
+- **GET** `/api/categories` - Retrieve all categories
+- **GET** `/api/categories/{id}` - Retrieve a specific category by ID
+- **POST** `/api/categories` - Create a new category
+- **DELETE** `/api/categories/{id}` - Delete a category
+
+### Movement Category Associations
+
+Manage automatic associations between transaction descriptions and categories.
+
+- **GET** `/api/associations` - Retrieve all associations
+- **POST** `/api/associations` - Create a new association
+- **DELETE** `/api/associations/{id}` - Delete an association
+
+### Santander Payment Movements
+
+Manage bank transactions from Santander accounts.
+
+- **GET** `/api/payments/santander` - Retrieve all movements
+- **GET** `/api/payments/santander/{id}` - Retrieve a specific movement by ID
+- **GET** `/api/payments/santander/inCategories` - Retrieve movements with associated categories
+- **GET** `/api/payments/santander/inCategoriesByYear/{year}` - Retrieve movements with categories filtered by year
+- **POST** `/api/payments/santander` - Create a new movement
+- **POST** `/api/payments/santander/saveAll` - Create multiple movements at once
+- **PUT** `/api/payments/santander/{id}` - Update a movement
+- **DELETE** `/api/payments/santander/{id}` - Delete a movement
+
+### File Upload
+
+Process and import bank statements from PDF files.
+
+- **POST** `/api/payments/santander/upload-pdf` - Upload and process a Santander PDF statement
+
+## Common Response Codes
+
+The API uses standard HTTP status codes:
+
+| Status Code | Description |
+|------------|-------------|
+| 200 OK | Request succeeded |
+| 201 Created | Resource successfully created |
+| 204 No Content | Request succeeded with no response body |
+| 400 Bad Request | Invalid request parameters or body |
+| 404 Not Found | Resource not found |
+| 500 Internal Server Error | Server error occurred |
+
+## Data Models
+
+### CategoryDTO
+
+```json
+{
+  "id": 1,
+  "categoryName": "Groceries",
+  "categoryType": "EXPENSE"
+}
+```
+
+### MovementAssociationDTO
+
+```json
+{
+  "id": 1,
+  "associationWord": "Netflix",
+  "categoryId": 5,
+  "categoryName": "Entertainment"
+}
+```
+
+### SantanderPaymentMovementDTO
+
+```json
+{
+  "id": 1,
+  "operationDate": "2024-03-15",
+  "operationLabel": "COMPRA EN SUPERMERCADO",
+  "amount": -45.50,
+  "balance": 1234.50
+}
+```
+
+## Authentication
+
+<Warning>
+Currently, the WalletSync API does not implement authentication. All endpoints are publicly accessible. This is suitable for local development but should not be used in production without proper security measures.
+</Warning>
+
+For information on adding authentication to the API, see the [Authentication](/api/authentication) guide.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/api/authentication">
+    Learn about adding security to your API
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Understand how the API handles errors
+  </Card>
+</CardGroup>

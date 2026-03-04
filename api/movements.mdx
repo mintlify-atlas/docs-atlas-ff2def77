@@ -1,0 +1,513 @@
+---
+title: 'Payment Movements'
+description: 'Manage Santander payment movements and transactions'
+---
+
+## Overview
+
+The Payment Movements API allows you to manage financial transactions from Santander bank statements. You can create, read, update, and delete payment movements, as well as retrieve movements grouped by categories.
+
+## Endpoints
+
+### List All Movements
+
+Retrieves all payment movements without category associations.
+
+```bash
+GET /api/payments/santander
+```
+
+**Example Request**
+
+```bash
+curl -X GET http://localhost:8080/api/payments/santander
+```
+
+**Response**
+
+<ResponseField name="movements" type="array">
+  Array of payment movement objects
+  
+  <ResponseField name="id" type="long">
+    Unique identifier for the movement
+  </ResponseField>
+  
+  <ResponseField name="operationDate" type="date">
+    Date of the transaction (YYYY-MM-DD)
+  </ResponseField>
+  
+  <ResponseField name="operationLabel" type="string">
+    Description or label of the transaction
+  </ResponseField>
+  
+  <ResponseField name="amount" type="decimal">
+    Transaction amount (negative for expenses, positive for income)
+  </ResponseField>
+  
+  <ResponseField name="balance" type="decimal">
+    Account balance after this transaction
+  </ResponseField>
+</ResponseField>
+
+**Example Response**
+
+```json
+[
+  {
+    "id": 1,
+    "operationDate": "2024-01-15",
+    "operationLabel": "NETFLIX SUBSCRIPTION",
+    "amount": -15.99,
+    "balance": 1234.56
+  },
+  {
+    "id": 2,
+    "operationDate": "2024-01-16",
+    "operationLabel": "SALARY DEPOSIT",
+    "amount": 3000.00,
+    "balance": 4234.56
+  }
+]
+```
+
+---
+
+### Get Movement by ID
+
+Retrieves a specific payment movement by its ID.
+
+```bash
+GET /api/payments/santander/{id}
+```
+
+**Path Parameters**
+
+<ParamField path="id" type="long" required>
+  The unique identifier of the payment movement
+</ParamField>
+
+**Example Request**
+
+```bash
+curl -X GET http://localhost:8080/api/payments/santander/1
+```
+
+**Response**
+
+<ResponseField name="id" type="long">
+  Unique identifier for the movement
+</ResponseField>
+
+<ResponseField name="operationDate" type="date">
+  Date of the transaction (YYYY-MM-DD)
+</ResponseField>
+
+<ResponseField name="operationLabel" type="string">
+  Description or label of the transaction
+</ResponseField>
+
+<ResponseField name="amount" type="decimal">
+  Transaction amount
+</ResponseField>
+
+<ResponseField name="balance" type="decimal">
+  Account balance after this transaction
+</ResponseField>
+
+**Example Response**
+
+```json
+{
+  "id": 1,
+  "operationDate": "2024-01-15",
+  "operationLabel": "NETFLIX SUBSCRIPTION",
+  "amount": -15.99,
+  "balance": 1234.56
+}
+```
+
+---
+
+### List Movements with Categories
+
+Retrieves all payment movements grouped by their associated categories.
+
+```bash
+GET /api/payments/santander/inCategories
+```
+
+**Example Request**
+
+```bash
+curl -X GET http://localhost:8080/api/payments/santander/inCategories
+```
+
+**Response**
+
+<ResponseField name="groups" type="array">
+  Array of movement groups organized by category
+  
+  <ResponseField name="category" type="object">
+    Category information
+    
+    <ResponseField name="id" type="long">
+      Category ID
+    </ResponseField>
+    
+    <ResponseField name="categoryName" type="string">
+      Category name
+    </ResponseField>
+    
+    <ResponseField name="categoryType" type="string">
+      Category type (e.g., EXPENSE, INCOME)
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="movements" type="array">
+    Array of payment movements belonging to this category
+  </ResponseField>
+</ResponseField>
+
+**Example Response**
+
+```json
+[
+  {
+    "category": {
+      "id": 1,
+      "categoryName": "Entertainment",
+      "categoryType": "EXPENSE"
+    },
+    "movements": [
+      {
+        "id": 1,
+        "operationDate": "2024-01-15",
+        "operationLabel": "NETFLIX SUBSCRIPTION",
+        "amount": -15.99,
+        "balance": 1234.56
+      }
+    ]
+  },
+  {
+    "category": {
+      "id": 2,
+      "categoryName": "Salary",
+      "categoryType": "INCOME"
+    },
+    "movements": [
+      {
+        "id": 2,
+        "operationDate": "2024-01-16",
+        "operationLabel": "SALARY DEPOSIT",
+        "amount": 3000.00,
+        "balance": 4234.56
+      }
+    ]
+  }
+]
+```
+
+---
+
+### List Movements by Year with Categories
+
+Retrieves payment movements for a specific year, grouped by month and category.
+
+```bash
+GET /api/payments/santander/inCategoriesByYear/{year}
+```
+
+**Path Parameters**
+
+<ParamField path="year" type="long" required>
+  The year to filter movements (e.g., 2024)
+</ParamField>
+
+**Example Request**
+
+```bash
+curl -X GET http://localhost:8080/api/payments/santander/inCategoriesByYear/2024
+```
+
+**Response**
+
+<ResponseField name="year" type="long">
+  The requested year
+</ResponseField>
+
+<ResponseField name="associatedSantanderPaymentByMonthDTOS" type="array">
+  Array of monthly grouped movements
+  
+  <ResponseField name="month" type="integer">
+    Month number (1-12)
+  </ResponseField>
+  
+  <ResponseField name="associatedSantanderPaymentDTOS" type="array">
+    Array of movements grouped by category for this month
+  </ResponseField>
+</ResponseField>
+
+**Example Response**
+
+```json
+{
+  "year": 2024,
+  "associatedSantanderPaymentByMonthDTOS": [
+    {
+      "month": 1,
+      "associatedSantanderPaymentDTOS": [
+        {
+          "category": {
+            "id": 1,
+            "categoryName": "Entertainment",
+            "categoryType": "EXPENSE"
+          },
+          "movements": [
+            {
+              "id": 1,
+              "operationDate": "2024-01-15",
+              "operationLabel": "NETFLIX SUBSCRIPTION",
+              "amount": -15.99,
+              "balance": 1234.56
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### Create Movement
+
+Creates a new payment movement.
+
+```bash
+POST /api/payments/santander
+```
+
+**Request Body**
+
+<ParamField body="operationDate" type="date" required>
+  Date of the transaction (YYYY-MM-DD format)
+</ParamField>
+
+<ParamField body="operationLabel" type="string" required>
+  Description or label of the transaction
+</ParamField>
+
+<ParamField body="amount" type="decimal" required>
+  Transaction amount (use negative values for expenses)
+</ParamField>
+
+<ParamField body="balance" type="decimal" required>
+  Account balance after this transaction
+</ParamField>
+
+**Example Request**
+
+```bash
+curl -X POST http://localhost:8080/api/payments/santander \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationDate": "2024-01-20",
+    "operationLabel": "GROCERY STORE",
+    "amount": -75.50,
+    "balance": 4159.06
+  }'
+```
+
+**Response**
+
+Returns the created movement with its generated ID (HTTP 201 Created).
+
+```json
+{
+  "id": 3,
+  "operationDate": "2024-01-20",
+  "operationLabel": "GROCERY STORE",
+  "amount": -75.50,
+  "balance": 4159.06
+}
+```
+
+---
+
+### Bulk Create Movements
+
+Creates multiple payment movements in a single request.
+
+```bash
+POST /api/payments/santander/saveAll
+```
+
+**Request Body**
+
+Array of payment movement objects (without IDs).
+
+**Example Request**
+
+```bash
+curl -X POST http://localhost:8080/api/payments/santander/saveAll \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "operationDate": "2024-01-20",
+      "operationLabel": "GROCERY STORE",
+      "amount": -75.50,
+      "balance": 4159.06
+    },
+    {
+      "operationDate": "2024-01-21",
+      "operationLabel": "GAS STATION",
+      "amount": -60.00,
+      "balance": 4099.06
+    }
+  ]'
+```
+
+**Response**
+
+Returns an array of created movements with their generated IDs (HTTP 201 Created).
+
+```json
+[
+  {
+    "id": 3,
+    "operationDate": "2024-01-20",
+    "operationLabel": "GROCERY STORE",
+    "amount": -75.50,
+    "balance": 4159.06
+  },
+  {
+    "id": 4,
+    "operationDate": "2024-01-21",
+    "operationLabel": "GAS STATION",
+    "amount": -60.00,
+    "balance": 4099.06
+  }
+]
+```
+
+---
+
+### Update Movement
+
+Updates an existing payment movement.
+
+```bash
+PUT /api/payments/santander/{id}
+```
+
+**Path Parameters**
+
+<ParamField path="id" type="long" required>
+  The unique identifier of the payment movement to update
+</ParamField>
+
+**Request Body**
+
+<ParamField body="operationDate" type="date" required>
+  Date of the transaction
+</ParamField>
+
+<ParamField body="operationLabel" type="string" required>
+  Description or label of the transaction
+</ParamField>
+
+<ParamField body="amount" type="decimal" required>
+  Transaction amount
+</ParamField>
+
+<ParamField body="balance" type="decimal" required>
+  Account balance after this transaction
+</ParamField>
+
+**Example Request**
+
+```bash
+curl -X PUT http://localhost:8080/api/payments/santander/3 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "operationDate": "2024-01-20",
+    "operationLabel": "GROCERY STORE - CORRECTED",
+    "amount": -80.00,
+    "balance": 4154.56
+  }'
+```
+
+**Response**
+
+Returns the updated movement (HTTP 200 OK).
+
+```json
+{
+  "id": 3,
+  "operationDate": "2024-01-20",
+  "operationLabel": "GROCERY STORE - CORRECTED",
+  "amount": -80.00,
+  "balance": 4154.56
+}
+```
+
+---
+
+### Delete Movement
+
+Deletes a payment movement by its ID.
+
+```bash
+DELETE /api/payments/santander/{id}
+```
+
+**Path Parameters**
+
+<ParamField path="id" type="long" required>
+  The unique identifier of the payment movement to delete
+</ParamField>
+
+**Example Request**
+
+```bash
+curl -X DELETE http://localhost:8080/api/payments/santander/3
+```
+
+**Response**
+
+Returns HTTP 204 No Content on successful deletion.
+
+---
+
+## Data Models
+
+### SantanderPaymentMovementDTO
+
+Represents a single payment movement transaction.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Long | Unique identifier (auto-generated) |
+| `operationDate` | LocalDate | Date of the transaction |
+| `operationLabel` | String | Transaction description |
+| `amount` | BigDecimal | Transaction amount (negative for expenses) |
+| `balance` | BigDecimal | Account balance after transaction |
+
+### AssociatedSantanderPaymentDTO
+
+Groups movements by category.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `category` | CategoryDTO | Category information |
+| `movements` | List&lt;SantanderPaymentMovementDTO&gt; | List of movements in this category |
+
+### AssociatedSantanderPaymentByYearDTO
+
+Groups movements by year and month.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `year` | Long | The year |
+| `associatedSantanderPaymentByMonthDTOS` | List&lt;AssociatedSantanderPaymentByMonthDTO&gt; | Monthly grouped movements |

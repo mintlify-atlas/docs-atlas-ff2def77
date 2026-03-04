@@ -1,0 +1,440 @@
+---
+title: 'Automated Categorization'
+description: 'How WalletSync automatically categorizes financial transactions'
+---
+
+## Overview
+
+WalletSync's **automated categorization system** analyzes transaction descriptions and assigns them to categories based on keyword matching rules. This eliminates manual categorization work and provides instant financial insights.
+
+<CardGroup cols={2}>
+  <Card title="Pattern Matching" icon="magnifying-glass">
+    Searches transaction labels for predefined keywords
+  </Card>
+  <Card title="Fallback Categories" icon="umbrella">
+    Unmatched transactions go to "OTHERS_EXPENSES" or "OTHERS_INCOMES"
+  </Card>
+</CardGroup>
+
+## How It Works
+
+The categorization process follows these steps:
+
+<Steps>
+  <Step title="Load Movements">
+    Retrieve all `SantanderPaymentMovement` records from the database
+  </Step>
+  
+  <Step title="Load Association Rules">
+    Fetch all `MovementCategoryAssociation` rules (keyword → category mappings)
+  </Step>
+  
+  <Step title="Match Keywords">
+    For each transaction, check if its `operationLabel` contains any association keyword
+  </Step>
+  
+  <Step title="Assign Category">
+    If match found, assign the corresponding category. Otherwise, assign "OTHERS"
+  </Step>
+  
+  <Step title="Group by Category">
+    Return transactions grouped by their assigned categories
+  </Step>
+</Steps>
+
+## AssociationProcessorService
+
+The core categorization logic resides in `AssociationProcessorService`:
+
+```java AssociationProcessorService.java
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class AssociationProcessorService {
+
+    private final MovementCategoryAssociationService movementCategoryAssociationService;
+    private final CategoryService categoryService;
+
+    private final String OTHERS_CATEGORY_EXPENSES = "OTHERS_EXPENSES";
+    private final String OTHERS_CATEGORY_INCOMES = "OTHERS_INCOMES";
+
+    public List<AssociatedSantanderPaymentDTO> process(List<SantanderPaymentMovementDTO> movements) {
+        
+        if(movements.isEmpty()) {
+            log.debug("Sin movimientos para procesar.");
+            return Collections.emptyList();
+        }
+
+        long startTime = System.currentTimeMillis();
+        log.debug("Iniciando procesamiento de asociación para {} movimientos", movements.size());
+
+        List<AssociatedSantanderPaymentDTO> listToReturn = new ArrayList<>();
+
+        // Initialize containers for all categories
+        initEmptyListToReturn(listToReturn);
+
+        // Load association rules
+        List<MovementAssociationDTO> categoryAssociationAll = movementCategoryAssociationService.findAll();
+
+        for (SantanderPaymentMovementDTO movement : movements) {
+            MovementAssociationDTO association = checkIfCategoryAssociationFound(movement, categoryAssociationAll);
+
+            if (association != null) {
+                setCategoryToMovement(association, movement, listToReturn);
+            } else {
+                setCategoryOthersToMovement(movement, listToReturn);
+            }
+        }
+
+        long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
+        log.debug("Procesamiento completado exitosamente en {} ms", duration);
+
+        return listToReturn;
+    }
+}
+```
+
+<Info>
+  The service logs processing time for performance monitoring.
+</Info>
+
+## Keyword Matching Logic
+
+The matching algorithm performs **case-insensitive substring searches**:
+
+```java AssociationProcessorService.java (line 150)
+private MovementAssociationDTO checkIfCategoryAssociationFound(
+    SantanderPaymentMovementDTO movement,
+    List<MovementAssociationDTO> associations) {
+    
+    String label = movement.operationLabel().toUpperCase();
+
+    for (MovementAssociationDTO association : associations) {
+        String keyword = association.getAssociationWord().toUpperCase();
+        if (label.contains(keyword)) {
+            return association;
+        }
+    }
+    return null;
+}
+```
+
+### Matching Examples
+
+<CodeGroup>
+```text Match Found
+Transaction Label: "Compra en MERCADONA MADRID"
+Association Word: "MERCADONA"
+Result: ✓ MATCHED → Assigned to "GROCERIES"
+```
+
+```text Match Found (Case Insensitive)
+Transaction Label: "recibo luz y gas"
+Association Word: "RECIBO LUZ"
+Result: ✓ MATCHED → Assigned to "UTILITIES"
+```
+
+```text No Match
+Transaction Label: "Pago en tienda desconocida"
+Association Word: (no matches)
+Result: ✗ NOT MATCHED → Assigned to "OTHERS_EXPENSES"
+```
+</CodeGroup>
+
+<Warning>
+  The first matching rule wins. If multiple associations could match, only the first one found is applied.
+</Warning>
+
+## Fallback to "OTHERS" Categories
+
+When no association rule matches, WalletSync determines the fallback category based on the transaction amount:
+
+```java AssociationProcessorService.java (line 80)
+private void setCategoryOthersToMovement(
+    SantanderPaymentMovementDTO movement,
+    List<AssociatedSantanderPaymentDTO> listToReturn) {
+    
+    Optional<AssociatedSantanderPaymentDTO> associatedDTO;
+    CategoryType categoryTypeToAssign;
+
+    // Determine if it's income or expense by amount sign
+    if (movement.amount().compareTo(BigDecimal.ZERO) > 0) {
+        categoryTypeToAssign = CategoryType.INCOME;
+        associatedDTO = listToReturn.stream()
+                .filter(dto -> OTHERS_CATEGORY_INCOMES.equals(dto.getCategory().getCategoryName()))
+                .findFirst();
+    } else {
+        categoryTypeToAssign = CategoryType.EXPENSE;
+        associatedDTO = listToReturn.stream()
+                .filter(dto -> OTHERS_CATEGORY_EXPENSES.equals(dto.getCategory().getCategoryName()))
+                .findFirst();
+    }
+
+    if (associatedDTO.isPresent()) {
+        associatedDTO.get().getMovements().add(movement);
+    } else {
+        // Create OTHERS category if it doesn't exist
+        log.warn("Categoría por defecto '{}' no encontrada. Creándola en el sistema...",
+                categoryTypeToAssign == CategoryType.INCOME ? OTHERS_CATEGORY_INCOMES : OTHERS_CATEGORY_EXPENSES);
+        // ... category creation logic ...
+    }
+}
+```
+
+<Tip>
+  **Positive amounts** (e.g., +50.00) → `OTHERS_INCOMES`
+  
+  **Negative amounts** (e.g., -35.50) → `OTHERS_EXPENSES`
+</Tip>
+
+## Association Rules Management
+
+Administrators can create, read, and delete association rules via the API:
+
+### Create Association Rule
+
+```http
+POST /api/movement-associations
+Content-Type: application/json
+
+{
+  "associationWord": "AMAZON",
+  "categoryId": 5
+}
+```
+
+### List All Rules
+
+```http
+GET /api/movement-associations
+```
+
+```json Response
+[
+  {
+    "id": 1,
+    "associationWord": "MERCADONA",
+    "categoryId": 1,
+    "categoryName": "GROCERIES"
+  },
+  {
+    "id": 2,
+    "associationWord": "UBER",
+    "categoryId": 2,
+    "categoryName": "TRANSPORT"
+  }
+]
+```
+
+### Delete Rule
+
+```http
+DELETE /api/movement-associations/{id}
+```
+
+<Info>
+  The service layer handles rule persistence through `MovementCategoryAssociationService`.
+</Info>
+
+## Service Implementation
+
+```java MovementCategoryAssociationService.java
+@Service
+@RequiredArgsConstructor
+public class MovementCategoryAssociationService {
+
+    private final MovementCategoryAssociationRepository associationRepository;
+    private final CategoryRepository categoryRepository;
+
+    public List<MovementAssociationDTO> findAll() {
+        return associationRepository.findAll().stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public MovementAssociationDTO save(MovementAssociationDTO dto) {
+        Category category = categoryRepository.findById(dto.getCategoryId())
+                .orElseThrow(() -> new RuntimeException("Categoría no encontrada para asociar"));
+
+        MovementCategoryAssociation association = new MovementCategoryAssociation();
+        association.setAssociationWord(dto.getAssociationWord());
+        association.setCategory(category);
+
+        return convertToDTO(associationRepository.save(association));
+    }
+
+    @Transactional
+    public void delete(Long id) {
+        if (!associationRepository.existsById(id)) {
+            throw new RuntimeException("No existe la asociación con id: " + id);
+        }
+        associationRepository.deleteById(id);
+    }
+}
+```
+
+<Note>
+  The service validates that the target category exists before creating an association.
+</Note>
+
+## Categorization Output
+
+The categorization process returns transactions grouped by category:
+
+```json
+[
+  {
+    "category": {
+      "id": 1,
+      "categoryName": "GROCERIES",
+      "categoryType": "EXPENSE"
+    },
+    "movements": [
+      {
+        "id": 101,
+        "operationDate": "2024-01-15",
+        "operationLabel": "Compra en MERCADONA",
+        "amount": -45.67,
+        "balance": 1234.56
+      },
+      {
+        "id": 105,
+        "operationDate": "2024-01-18",
+        "operationLabel": "CARREFOUR EXPRESS",
+        "amount": -32.10,
+        "balance": 1098.20
+      }
+    ]
+  },
+  {
+    "category": {
+      "id": 2,
+      "categoryName": "TRANSPORT",
+      "categoryType": "EXPENSE"
+    },
+    "movements": [
+      {
+        "id": 103,
+        "operationDate": "2024-01-16",
+        "operationLabel": "UBER TRIP",
+        "amount": -12.50,
+        "balance": 1221.06
+      }
+    ]
+  }
+]
+```
+
+## Annual Reports
+
+The service also supports generating annual reports grouped by month:
+
+```java AssociationProcessorService.java (line 166)
+public AssociatedSantanderPaymentByYearDTO processByYear(
+    List<SantanderPaymentMovementDTO> movements, 
+    Long year) {
+    
+    log.debug("Generando reporte anual para el año: {}", year);
+    List<AssociatedSantanderPaymentByMonthDTO> monthlyReports = new ArrayList<>();
+
+    for (Month month : Month.values()) {
+        List<SantanderPaymentMovementDTO> movementsOfMonth = getPaymentsByMonth(month, movements);
+
+        monthlyReports.add(new AssociatedSantanderPaymentByMonthDTO(
+                month.getValue(),
+                process(movementsOfMonth) // Reuse categorization logic
+        ));
+    }
+    
+    return new AssociatedSantanderPaymentByYearDTO(year, monthlyReports);
+}
+```
+
+### Request Annual Report
+
+```http
+GET /api/payments/santander/by-year?year=2024
+```
+
+```json Response Structure
+{
+  "year": 2024,
+  "monthlyReports": [
+    {
+      "month": 1,
+      "categorizedMovements": [
+        // January transactions grouped by category
+      ]
+    },
+    {
+      "month": 2,
+      "categorizedMovements": [
+        // February transactions grouped by category
+      ]
+    }
+    // ... months 3-12
+  ]
+}
+```
+
+## Performance Considerations
+
+<AccordionGroup>
+  <Accordion title="Processing Time Logging">
+    The service measures and logs how long categorization takes, useful for monitoring performance as the dataset grows.
+    
+    ```java
+    long startTime = System.currentTimeMillis();
+    // ... processing logic ...
+    long endTime = System.currentTimeMillis();
+    log.debug("Procesamiento completado en {} ms", endTime - startTime);
+    ```
+  </Accordion>
+  
+  <Accordion title="In-Memory Processing">
+    All movements and association rules are loaded into memory. For large datasets (10,000+ transactions), consider:
+    - Pagination
+    - Database-side filtering
+    - Caching association rules
+  </Accordion>
+  
+  <Accordion title="Lazy Loading">
+    The `@ManyToOne(fetch = FetchType.LAZY)` annotation prevents unnecessary database queries when loading associations.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Specific Keywords" icon="bullseye">
+    Use specific keywords to avoid false matches (e.g., "RECIBO LUZ" instead of just "LUZ")
+  </Card>
+  
+  <Card title="Regular Review" icon="calendar-check">
+    Periodically review "OTHERS" categories and create rules for frequent unmatched transactions
+  </Card>
+  
+  <Card title="Unique Names" icon="fingerprint">
+    Ensure category names are unique (enforced by database constraint)
+  </Card>
+  
+  <Card title="Test Rules" icon="flask">
+    Test new association rules with sample data before deploying to production
+  </Card>
+</CardGroup>
+
+## Extending the System
+
+Potential enhancements to the categorization system:
+
+- **Priority-based matching**: Allow rules to have priority levels
+- **Regex support**: Use regular expressions instead of simple substring matching
+- **Machine learning**: Train a model on historical categorizations
+- **Multiple keywords per rule**: Match if transaction contains any of several keywords
+- **Negative keywords**: Exclude transactions containing certain words
+
+<Card title="Learn More" icon="book" href="/concepts/architecture">
+  Understand how categorization fits into WalletSync's overall architecture
+</Card>

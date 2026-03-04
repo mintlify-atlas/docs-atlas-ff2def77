@@ -1,0 +1,212 @@
+---
+title: 'Configuration'
+description: 'Configure WalletSync application settings, database, and logging'
+---
+
+## Overview
+
+WalletSync uses Spring Boot's standard `application.properties` file for configuration. This guide covers all available settings including database connection, JPA/Hibernate behavior, and logging levels.
+
+## Configuration File Location
+
+The main configuration file is located at:
+
+```
+src/main/resources/application.properties
+```
+
+## Database Configuration
+
+### PostgreSQL Connection
+
+WalletSync requires a PostgreSQL database. Configure the connection using these properties:
+
+```properties
+# Database connection URL
+spring.datasource.url=jdbc:postgresql://localhost:5432/walletsync_db
+
+# Database credentials
+spring.datasource.username=postgres
+spring.datasource.password=root
+
+# JDBC driver
+spring.datasource.driver-class-name=org.postgresql.Driver
+```
+
+<Note>
+  The default configuration expects PostgreSQL running on `localhost:5432` with a database named `walletsync_db`.
+</Note>
+
+### Connection String Format
+
+The database URL follows this pattern:
+
+```
+jdbc:postgresql://<host>:<port>/<database_name>
+```
+
+**Examples:**
+
+<CodeGroup>
+```properties Local Development
+spring.datasource.url=jdbc:postgresql://localhost:5432/walletsync_db
+```
+
+```properties Remote Database
+spring.datasource.url=jdbc:postgresql://db.example.com:5432/walletsync_production
+```
+
+```properties Docker Compose
+spring.datasource.url=jdbc:postgresql://db:5432/walletsync_db
+```
+</CodeGroup>
+
+## JPA and Hibernate Settings
+
+### Schema Management
+
+```properties
+# DDL auto mode - controls table creation/updates
+spring.jpa.hibernate.ddl-auto=update
+```
+
+<Warning>
+  In production environments, use `validate` or `none` instead of `update` to prevent automatic schema changes.
+</Warning>
+
+**Available DDL modes:**
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| `update` | Creates or updates tables automatically | Development |
+| `create` | Drops and recreates tables on startup | Testing |
+| `create-drop` | Creates tables, drops them on shutdown | Testing |
+| `validate` | Validates schema without changes | Production |
+| `none` | No schema management | Production |
+
+### SQL Query Display
+
+```properties
+# Show SQL statements in console
+spring.jpa.show-sql=false
+
+# Format SQL for readability
+spring.jpa.properties.hibernate.format_sql=false
+```
+
+<Note>
+  Enable `show-sql` and `format_sql` during development to debug database queries. Disable in production for performance.
+</Note>
+
+### Database Dialect
+
+```properties
+# PostgreSQL dialect for optimal query generation
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+```
+
+## Logging Configuration
+
+### Root Logging Level
+
+```properties
+# Global logging level
+logging.level.root=INFO
+```
+
+### Application-Specific Logging
+
+```properties
+# Debug level for WalletSync package
+logging.level.com.mymoney.walletsync=DEBUG
+```
+
+This enables detailed logging for all WalletSync classes while keeping third-party libraries at INFO level.
+
+### Hibernate SQL Logging
+
+```properties
+# Log SQL statements
+logging.level.org.hibernate.SQL=INFO
+
+# Log SQL parameter bindings
+logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+```
+
+<Steps>
+  <Step title="Set SQL logging to INFO">
+    View the SQL queries Hibernate generates
+  </Step>
+  <Step title="Set BasicBinder to TRACE">
+    See the actual parameter values bound to prepared statements
+  </Step>
+</Steps>
+
+## Environment Variables
+
+You can override any property using environment variables. This is especially useful for Docker deployments:
+
+```bash
+# Database URL
+export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/walletsync_db
+
+# Database credentials
+export SPRING_DATASOURCE_USERNAME=admin
+export SPRING_DATASOURCE_PASSWORD=secure_password
+
+# DDL mode
+export SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+```
+
+## Complete Configuration Example
+
+<CodeGroup>
+```properties Development
+spring.application.name=walletsync
+
+# Database
+spring.datasource.url=jdbc:postgresql://localhost:5432/walletsync_db
+spring.datasource.username=postgres
+spring.datasource.password=root
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# JPA/Hibernate
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+
+# Logging
+logging.level.root=INFO
+logging.level.com.mymoney.walletsync=DEBUG
+logging.level.org.hibernate.SQL=DEBUG
+logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+```
+
+```properties Production
+spring.application.name=walletsync
+
+# Database
+spring.datasource.url=jdbc:postgresql://prod-db:5432/walletsync_production
+spring.datasource.username=${DB_USERNAME}
+spring.datasource.password=${DB_PASSWORD}
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+# JPA/Hibernate
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=false
+spring.jpa.properties.hibernate.format_sql=false
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+
+# Logging
+logging.level.root=WARN
+logging.level.com.mymoney.walletsync=INFO
+logging.level.org.hibernate.SQL=WARN
+```
+</CodeGroup>
+
+## Next Steps
+
+<Card title="Docker Deployment" icon="docker" href="/guides/docker-deployment">
+  Learn how to configure WalletSync for Docker and Docker Compose
+</Card>

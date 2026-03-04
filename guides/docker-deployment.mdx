@@ -1,0 +1,576 @@
+---
+title: 'Docker Deployment'
+description: 'Deploy WalletSync using Docker and Docker Compose'
+---
+
+## Overview
+
+WalletSync includes production-ready Docker configuration with multi-stage builds for optimal image size and security. This guide covers building Docker images, running containers, and deploying with Docker Compose.
+
+## Dockerfile
+
+The project uses a **multi-stage Docker build** to separate the build environment from the runtime environment, resulting in smaller and more secure images.
+
+### Build Stage
+
+The first stage compiles the application using Maven:
+
+```dockerfile
+# Stage 1: Build
+FROM eclipse-temurin:21-jdk-jammy AS builder
+
+WORKDIR /build
+
+# Copy Maven wrapper and configuration
+COPY .mvn/ .mvn
+COPY mvnw pom.xml ./
+RUN chmod +x mvnw
+
+# Download dependencies (cached layer)
+RUN ./mvnw dependency:go-offline -B
+
+# Copy source and build
+COPY src ./src
+RUN ./mvnw clean package -DskipTests
+```
+
+<Note>
+  The `dependency:go-offline` step downloads all dependencies separately, creating a cached layer that only rebuilds when `pom.xml` changes.
+</Note>
+
+### Runtime Stage
+
+The second stage creates a minimal runtime image:
+
+```dockerfile
+# Stage 2: Runtime
+FROM eclipse-temurin:21-jre-jammy
+
+# Create non-root user for security
+RUN addgroup --system javauser && adduser --system --group javauser
+USER javauser
+
+WORKDIR /app
+
+# Copy JAR from build stage
+COPY --from=builder /build/target/*.jar app.jar
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+**Source:** `Dockerfile:1-36`
+
+<Warning>
+  The application runs as a non-root user (`javauser`) for enhanced security. Ensure any mounted volumes have appropriate permissions.
+</Warning>
+
+## Building the Docker Image
+
+### Basic Build
+
+Build the image with a tag:
+
+```bash
+docker build -t walletsync-app .
+```
+
+### Build with Version Tag
+
+```bash
+docker build -t walletsync-app:1.0.0 -t walletsync-app:latest .
+```
+
+### Verify the Build
+
+Check the created image:
+
+```bash
+docker images | grep walletsync
+```
+
+**Expected output:**
+```
+walletsync-app    latest    abc123def456    2 minutes ago    350MB
+```
+
+## Running with Docker
+
+### Basic Container
+
+Run WalletSync with default settings:
+
+```bash
+docker run -d -p 8080:8080 --name walletsync-container walletsync-app
+```
+
+<Steps>
+  <Step title="Pull/Use image">
+    Uses the `walletsync-app` image
+  </Step>
+  <Step title="Start container">
+    Runs in detached mode (`-d`)
+  </Step>
+  <Step title="Expose port">
+    Maps port 8080 to host (`-p 8080:8080`)
+  </Step>
+  <Step title="Name container">
+    Names it `walletsync-container` for easy management
+  </Step>
+</Steps>
+
+### With Environment Variables
+
+Override configuration using environment variables:
+
+<CodeGroup>
+```bash Basic Configuration
+docker run -d -p 8080:8080 \
+  --name walletsync-container \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/walletsync_db \
+  -e SPRING_DATASOURCE_USERNAME=postgres \
+  -e SPRING_DATASOURCE_PASSWORD=secure_password \
+  walletsync-app
+```
+
+```bash Production Configuration
+docker run -d -p 8080:8080 \
+  --name walletsync-container \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://prod-db:5432/walletsync_production \
+  -e SPRING_DATASOURCE_USERNAME=admin \
+  -e SPRING_DATASOURCE_PASSWORD=prod_password \
+  -e SPRING_JPA_HIBERNATE_DDL_AUTO=validate \
+  -e LOGGING_LEVEL_ROOT=WARN \
+  -e LOGGING_LEVEL_COM_MYMONEY_WALLETSYNC=INFO \
+  walletsync-app
+```
+
+```bash With External Database
+docker run -d -p 8080:8080 \
+  --name walletsync-container \
+  --network my-network \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-container:5432/walletsync_db \
+  -e SPRING_DATASOURCE_USERNAME=postgres \
+  -e SPRING_DATASOURCE_PASSWORD=root \
+  walletsync-app
+```
+</CodeGroup>
+
+## Environment Variables
+
+Key environment variables for Docker deployment:
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `SPRING_DATASOURCE_URL` | PostgreSQL connection URL | `jdbc:postgresql://localhost:5432/walletsync_db` |
+| `SPRING_DATASOURCE_USERNAME` | Database username | `postgres` |
+| `SPRING_DATASOURCE_PASSWORD` | Database password | `root` |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | Schema management mode | `update` |
+| `SPRING_JPA_SHOW_SQL` | Show SQL in logs | `false` |
+| `LOGGING_LEVEL_ROOT` | Root logging level | `INFO` |
+| `LOGGING_LEVEL_COM_MYMONEY_WALLETSYNC` | App logging level | `DEBUG` |
+
+## Docker Compose
+
+WalletSync includes a complete Docker Compose configuration that sets up both the application and PostgreSQL database.
+
+### Docker Compose File
+
+```yaml
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: walletsync-db
+    environment:
+      POSTGRES_DB: walletsync_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Spring Boot Application
+  app:
+    build: .
+    container_name: walletsync-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/walletsync_db
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: password123
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    depends_on:
+      - db
+
+volumes:
+  pgdata:
+```
+
+**Source:** `docker-compose.yml:1-34`
+
+### Starting with Docker Compose
+
+<Steps>
+  <Step title="Build and start all services">
+    ```bash
+    docker-compose up --build -d
+    ```
+  </Step>
+  <Step title="View logs">
+    ```bash
+    # All services
+    docker-compose logs -f
+    
+    # Specific service
+    docker-compose logs -f app
+    ```
+  </Step>
+  <Step title="Verify services are running">
+    ```bash
+    docker-compose ps
+    ```
+  </Step>
+  <Step title="Test the application">
+    ```bash
+    curl http://localhost:8080/api/categories
+    ```
+  </Step>
+</Steps>
+
+### Common Docker Compose Commands
+
+<CodeGroup>
+```bash Start Services
+# Build and start in background
+docker-compose up --build -d
+
+# Start without rebuilding
+docker-compose up -d
+
+# Start and view logs
+docker-compose up
+```
+
+```bash Stop Services
+# Stop containers (keeps volumes)
+docker-compose stop
+
+# Stop and remove containers
+docker-compose down
+
+# Stop, remove containers and volumes
+docker-compose down -v
+```
+
+```bash View Logs
+# All services
+docker-compose logs
+
+# Follow logs in real-time
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f app
+
+# Last 100 lines
+docker-compose logs --tail=100 app
+```
+
+```bash Manage Services
+# Restart services
+docker-compose restart
+
+# Restart specific service
+docker-compose restart app
+
+# View running services
+docker-compose ps
+
+# Execute command in container
+docker-compose exec app bash
+```
+</CodeGroup>
+
+## Database Persistence
+
+### Volume Configuration
+
+Docker Compose creates a named volume for PostgreSQL data:
+
+```yaml
+volumes:
+  pgdata:
+```
+
+This ensures data persists even when containers are stopped or removed.
+
+### Managing Data
+
+<CodeGroup>
+```bash Backup Database
+# Export database dump
+docker-compose exec db pg_dump -U admin walletsync_db > backup.sql
+
+# With timestamp
+docker-compose exec db pg_dump -U admin walletsync_db > backup-$(date +%Y%m%d).sql
+```
+
+```bash Restore Database
+# Import database dump
+docker-compose exec -T db psql -U admin walletsync_db < backup.sql
+```
+
+```bash Reset Database
+# Stop containers and remove volumes
+docker-compose down -v
+
+# Restart with fresh database
+docker-compose up -d
+```
+</CodeGroup>
+
+<Warning>
+  The command `docker-compose down -v` will permanently delete all data in the database. Always backup before running this command.
+</Warning>
+
+## Networking
+
+### Container Communication
+
+Docker Compose creates a default network where services can communicate using service names:
+
+```yaml
+SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/walletsync_db
+```
+
+The hostname `db` resolves to the database container.
+
+### External Network Access
+
+Connect to external databases or services:
+
+```yaml
+app:
+  environment:
+    SPRING_DATASOURCE_URL: jdbc:postgresql://external-db.example.com:5432/walletsync_db
+```
+
+## Production Considerations
+
+### Security Best Practices
+
+<Steps>
+  <Step title="Use secrets for passwords">
+    ```yaml
+    services:
+      db:
+        environment:
+          POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+        secrets:
+          - db_password
+    
+    secrets:
+      db_password:
+        file: ./secrets/db_password.txt
+    ```
+  </Step>
+  <Step title="Set proper permissions">
+    Ensure the non-root user can access mounted volumes:
+    ```bash
+    chown -R 1000:1000 /path/to/volume
+    ```
+  </Step>
+  <Step title="Use read-only filesystem where possible">
+    ```yaml
+    app:
+      read_only: true
+      tmpfs:
+        - /tmp
+    ```
+  </Step>
+</Steps>
+
+### Resource Limits
+
+Set resource constraints for production:
+
+```yaml
+services:
+  app:
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+  
+  db:
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+```
+
+### Health Checks
+
+Add health checks to monitor container status:
+
+```yaml
+services:
+  app:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  
+  db:
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+```
+
+<Note>
+  Spring Boot Actuator must be enabled for the `/actuator/health` endpoint to work.
+</Note>
+
+## Troubleshooting
+
+### Common Issues
+
+**Cannot connect to database:**
+```bash
+# Check if database is running
+docker-compose ps db
+
+# View database logs
+docker-compose logs db
+
+# Verify network connectivity
+docker-compose exec app ping db
+```
+
+**Application fails to start:**
+```bash
+# View application logs
+docker-compose logs app
+
+# Check if port is already in use
+lsof -i :8080
+
+# Rebuild without cache
+docker-compose build --no-cache app
+```
+
+**Permission denied errors:**
+```bash
+# Fix volume permissions
+docker-compose exec app ls -la /app
+
+# Run as different user
+docker-compose exec --user root app bash
+```
+
+### Debugging
+
+<CodeGroup>
+```bash Access Container Shell
+# Application container
+docker-compose exec app bash
+
+# Database container
+docker-compose exec db bash
+
+# As root user
+docker-compose exec --user root app bash
+```
+
+```bash Check Configuration
+# View environment variables
+docker-compose exec app env | grep SPRING
+
+# Check Java version
+docker-compose exec app java -version
+
+# Verify JAR file
+docker-compose exec app ls -lh /app
+```
+
+```bash Database Access
+# Connect to PostgreSQL
+docker-compose exec db psql -U admin walletsync_db
+
+# List tables
+docker-compose exec db psql -U admin walletsync_db -c "\dt"
+
+# Query data
+docker-compose exec db psql -U admin walletsync_db -c "SELECT * FROM categories;"
+```
+</CodeGroup>
+
+## Complete Deployment Example
+
+Here's a complete workflow for deploying WalletSync:
+
+<Steps>
+  <Step title="Clone repository">
+    ```bash
+    git clone https://github.com/yourusername/walletsync.git
+    cd walletsync
+    ```
+  </Step>
+  <Step title="Configure environment">
+    ```bash
+    # Create .env file (optional)
+    cat > .env << EOF
+    POSTGRES_USER=admin
+    POSTGRES_PASSWORD=secure_password_123
+    POSTGRES_DB=walletsync_db
+    EOF
+    ```
+  </Step>
+  <Step title="Start services">
+    ```bash
+    docker-compose up --build -d
+    ```
+  </Step>
+  <Step title="Wait for startup">
+    ```bash
+    # Watch logs until app starts
+    docker-compose logs -f app
+    # Press Ctrl+C when you see "Started WalletsyncApplication"
+    ```
+  </Step>
+  <Step title="Test API">
+    ```bash
+    # Health check
+    curl http://localhost:8080/api/categories
+    
+    # Create test category
+    curl -X POST http://localhost:8080/api/categories \
+      -H "Content-Type: application/json" \
+      -d '{"categoryName": "Test", "categoryType": "EXPENSE"}'
+    ```
+  </Step>
+</Steps>
+
+## Next Steps
+
+<Card title="Configuration" icon="gear" href="/guides/configuration">
+  Learn about all available configuration options
+</Card>

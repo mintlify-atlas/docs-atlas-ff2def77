@@ -1,0 +1,324 @@
+---
+title: 'Installation'
+description: 'Complete setup guide for local development with WalletSync'
+---
+
+## Prerequisites
+
+Before installing WalletSync, ensure you have the following installed:
+
+<Steps>
+  <Step title="Java 21">
+    WalletSync requires Java 21 as specified in pom.xml:30.
+
+    <CodeGroup>
+      ```bash macOS (Homebrew)
+      brew install openjdk@21
+      ```
+
+      ```bash Ubuntu/Debian
+      sudo apt update
+      sudo apt install openjdk-21-jdk
+      ```
+
+      ```bash Windows (Chocolatey)
+      choco install openjdk21
+      ```
+    </CodeGroup>
+
+    Verify the installation:
+    ```bash
+    java -version
+    ```
+  </Step>
+
+  <Step title="Apache Maven">
+    Maven is used for dependency management and building the project.
+
+    <CodeGroup>
+      ```bash macOS (Homebrew)
+      brew install maven
+      ```
+
+      ```bash Ubuntu/Debian
+      sudo apt install maven
+      ```
+
+      ```bash Windows (Chocolatey)
+      choco install maven
+      ```
+    </CodeGroup>
+
+    Verify the installation:
+    ```bash
+    mvn -version
+    ```
+
+    <Note>
+      The project includes a Maven wrapper (`./mvnw`), so you can use that instead of installing Maven globally.
+    </Note>
+  </Step>
+
+  <Step title="PostgreSQL 15">
+    WalletSync uses PostgreSQL as its database (see docker-compose.yml:6).
+
+    <CodeGroup>
+      ```bash macOS (Homebrew)
+      brew install postgresql@15
+      brew services start postgresql@15
+      ```
+
+      ```bash Ubuntu/Debian
+      sudo apt install postgresql-15
+      sudo systemctl start postgresql
+      ```
+
+      ```bash Docker (Recommended)
+      docker pull postgres:15-alpine
+      ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+## Installation
+
+### Option 1: Local Development Setup
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone <repository-url>
+    cd walletsync
+    ```
+  </Step>
+
+  <Step title="Create the database">
+    Connect to PostgreSQL and create the database:
+
+    ```bash
+    psql -U postgres
+    ```
+
+    Then in the PostgreSQL prompt:
+    ```sql
+    CREATE DATABASE walletsync_db;
+    ```
+
+    <Tip>
+      The database name must match the value in `application.properties`: `walletsync_db`
+    </Tip>
+  </Step>
+
+  <Step title="Configure database credentials">
+    Edit `src/main/resources/application.properties` with your PostgreSQL credentials:
+
+    ```properties application.properties
+    spring.datasource.url=jdbc:postgresql://localhost:5432/walletsync_db
+    spring.datasource.username=postgres
+    spring.datasource.password=root
+    spring.datasource.driver-class-name=org.postgresql.Driver
+    ```
+
+    <Warning>
+      Never commit your actual database credentials to version control. Use environment variables for production deployments.
+    </Warning>
+  </Step>
+
+  <Step title="Configure JPA/Hibernate">
+    The application is pre-configured with automatic table creation:
+
+    ```properties application.properties
+    spring.jpa.hibernate.ddl-auto=update
+    spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+    ```
+
+    <Info>
+      `ddl-auto=update` automatically creates and updates database tables. For production, change this to `validate` or `none`.
+    </Info>
+  </Step>
+
+  <Step title="Install dependencies">
+    Build the project and download all dependencies:
+
+    <CodeGroup>
+      ```bash Maven Wrapper
+      ./mvnw clean install
+      ```
+
+      ```bash Maven
+      mvn clean install
+      ```
+    </CodeGroup>
+
+    This will compile the code and run tests.
+  </Step>
+
+  <Step title="Run the application">
+    Start the Spring Boot application:
+
+    <CodeGroup>
+      ```bash Maven Wrapper
+      ./mvnw spring-boot:run
+      ```
+
+      ```bash Maven
+      mvn spring-boot:run
+      ```
+
+      ```bash Java (after building)
+      java -jar target/walletsync-0.0.1-SNAPSHOT.jar
+      ```
+    </CodeGroup>
+
+    The API will be available at `http://localhost:8080`
+  </Step>
+</Steps>
+
+### Option 2: Docker Compose Setup
+
+For a complete containerized environment with PostgreSQL:
+
+<Steps>
+  <Step title="Review Docker configuration">
+    The `docker-compose.yml` defines both the database and application:
+
+    ```yaml docker-compose.yml
+    services:
+      db:
+        image: postgres:15-alpine
+        environment:
+          POSTGRES_DB: walletsync_db
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: password123
+        ports:
+          - "5432:5432"
+      
+      app:
+        build: .
+        ports:
+          - "8080:8080"
+        environment:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/walletsync_db
+          SPRING_DATASOURCE_USERNAME: admin
+          SPRING_DATASOURCE_PASSWORD: password123
+        depends_on:
+          - db
+    ```
+  </Step>
+
+  <Step title="Start all services">
+    Build and run both the database and application:
+
+    ```bash
+    docker-compose up --build -d
+    ```
+
+    Or run only the database if you want to develop locally:
+    ```bash
+    docker-compose up -d db
+    ```
+
+    <Tip>
+      Use `docker-compose logs -f app` to view application logs in real-time.
+    </Tip>
+  </Step>
+
+  <Step title="Verify the setup">
+    Check that both containers are running:
+
+    ```bash
+    docker ps
+    ```
+
+    You should see `walletsync-db` and `walletsync-app` containers.
+  </Step>
+</Steps>
+
+## Environment Configuration
+
+### Development Settings
+
+The application includes development-friendly logging (see application.properties:25-33):
+
+```properties
+logging.level.root=INFO
+logging.level.com.mymoney.walletsync=DEBUG
+logging.level.org.hibernate.SQL=INFO
+```
+
+<Info>
+  SQL logging is disabled by default (`spring.jpa.show-sql=false`). Set to `true` to see all database queries during development.
+</Info>
+
+### Production Considerations
+
+For production deployments:
+
+1. **Change the DDL mode:**
+   ```properties
+   spring.jpa.hibernate.ddl-auto=validate
+   ```
+
+2. **Use environment variables for sensitive data:**
+   ```bash
+   export SPRING_DATASOURCE_URL=jdbc:postgresql://prod-host:5432/walletsync_db
+   export SPRING_DATASOURCE_USERNAME=prod_user
+   export SPRING_DATASOURCE_PASSWORD=secure_password
+   ```
+
+3. **Disable debug logging:**
+   ```properties
+   logging.level.com.mymoney.walletsync=INFO
+   ```
+
+<Warning>
+  Never use `ddl-auto=update` in production. Use database migration tools like Flyway or Liquibase for schema management.
+</Warning>
+
+## Verify Installation
+
+Test the installation by checking the health of the API:
+
+```bash
+curl http://localhost:8080/api/categories
+```
+
+Expected response:
+```json
+[]
+```
+
+If you see an empty array, the API is running correctly and ready to use.
+
+## Troubleshooting
+
+### Port 8080 already in use
+
+Change the application port in `application.properties`:
+```properties
+server.port=8081
+```
+
+### Database connection refused
+
+Verify PostgreSQL is running:
+```bash
+psql -U postgres -c "SELECT version();"
+```
+
+Check that the database exists:
+```bash
+psql -U postgres -l | grep walletsync_db
+```
+
+### Maven build fails
+
+Ensure Java 21 is being used:
+```bash
+java -version
+echo $JAVA_HOME
+```
+
+<Tip>
+  For more detailed logs, run Maven with the `-X` flag: `./mvnw clean install -X`
+</Tip>

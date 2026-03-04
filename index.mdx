@@ -1,97 +1,247 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: Introduction
+description: A Spring Boot REST API for personal finance management with bank transaction tracking and automated categorization
+mode: custom
 ---
 
-## Setting up
+<div className="relative bg-gradient-to-br from-[#10B981] to-[#059669] dark:from-[#059669] dark:to-[#065f46] py-20 overflow-hidden">
+  <div className="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+          Welcome to WalletSync
+        </h1>
+        <p className="text-lg sm:text-xl text-white/90 max-w-2xl mb-8">
+          A powerful REST API for managing personal finances. Track bank transactions, categorize expenses, and gain insights into your spending patterns with automated categorization.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a
+            href="/quickstart"
+            className="inline-flex items-center px-6 py-3 bg-white text-[#10B981] font-semibold rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            Get Started
+          </a>
+          <a
+            href="/api/overview"
+            className="inline-flex items-center px-6 py-3 border-2 border-white/30 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-colors"
+          >
+            API Reference
+          </a>
+        </div>
+      </div>
+      <div className="lg:col-span-5 hidden lg:block">
+        <div className="relative">
+          <div className="absolute inset-0 bg-white/10 rounded-2xl backdrop-blur-sm"></div>
+          <div className="relative p-6 text-white/90 font-mono text-sm">
+            <div className="mb-2 text-white/60">// Track your finances</div>
+            <div>POST /api/payments/santander/upload-pdf</div>
+            <div className="mt-4 mb-2 text-white/60">// Categorize expenses</div>
+            <div>GET /api/payments/santander/inCategories</div>
+            <div className="mt-4 mb-2 text-white/60">// Analyze spending</div>
+            <div>GET /api/payments/santander/inCategoriesByYear/2024</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Quick Start
+  </h2>
+  <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
+    Get WalletSync up and running in minutes
+  </p>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+  <Steps>
+    <Step title="Clone and build the project">
+      Clone the repository and build the application using Maven:
+      
+      ```bash
+      git clone https://github.com/alemadorran/walletsync.git
+      cd walletsync
+      ./mvnw clean package
+      ```
+    </Step>
 
-## Make it yours
+    <Step title="Configure the database">
+      Set up PostgreSQL and update `application.properties`:
+      
+      ```properties
+      spring.datasource.url=jdbc:postgresql://localhost:5432/walletsync_db
+      spring.datasource.username=postgres
+      spring.datasource.password=your_password
+      ```
+      
+      <Note>The application will automatically create database tables on startup using Hibernate DDL auto-update.</Note>
+    </Step>
 
-Design a docs site that looks great and empowers your users.
+    <Step title="Start the application">
+      Run the Spring Boot application:
+      
+      ```bash
+      ./mvnw spring-boot:run
+      ```
+      
+      The API will be available at `http://localhost:8080`
+    </Step>
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+    <Step title="Make your first API call">
+      Test the API by creating a category:
+      
+      ```bash cURL
+      curl -X POST http://localhost:8080/api/categories \
+        -H "Content-Type: application/json" \
+        -d '{
+          "categoryName": "Groceries",
+          "categoryType": "EXPENSE"
+        }'
+      ```
+      
+      <Accordion title="Example response">
+        ```json
+        {
+          "id": 1,
+          "categoryName": "Groceries",
+          "categoryType": "EXPENSE"
+        }
+        ```
+      </Accordion>
+    </Step>
+  </Steps>
+</div>
 
-## Create beautiful pages
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Key Features
+  </h2>
+  <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
+    Everything you need to manage your personal finances
+  </p>
 
-Everything you need to create world-class documentation.
+  <CardGroup cols={2}>
+    <Card title="Bank Integration" icon="building-columns" href="/guides/pdf-upload">
+      Import bank statements from Santander by uploading PDF files. Transactions are automatically parsed and stored.
+    </Card>
+    <Card title="Smart Categorization" icon="tags" href="/concepts/categorization">
+      Automatically categorize transactions using keyword associations. Train the system to recognize recurring expenses.
+    </Card>
+    <Card title="Financial Reporting" icon="chart-line" href="/api/movements">
+      View categorized expenses by month and year. Track spending patterns and analyze your financial health.
+    </Card>
+    <Card title="RESTful API" icon="code" href="/api/overview">
+      Full REST API with endpoints for transactions, categories, and associations. Easy to integrate with other tools.
+    </Card>
+  </CardGroup>
+</div>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+    Explore the Documentation
+  </h2>
+  <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
+    Learn more about WalletSync's architecture and capabilities
+  </p>
 
-## Need inspiration?
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <a
+      href="/concepts/architecture"
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#10B981] dark:hover:border-[#10B981] transition-colors overflow-hidden no-underline bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          Architecture Overview
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Understand how WalletSync is built with Spring Boot, JPA, and PostgreSQL
+        </p>
+        <div className="flex items-center text-[#10B981] group-hover:text-[#059669] text-sm font-medium">
+          Learn more
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+    <a
+      href="/concepts/data-model"
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#10B981] dark:hover:border-[#10B981] transition-colors overflow-hidden no-underline bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          Data Model
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Explore the entities and relationships that power financial tracking
+        </p>
+        <div className="flex items-center text-[#10B981] group-hover:text-[#059669] text-sm font-medium">
+          Learn more
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a
+      href="/guides/configuration"
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#10B981] dark:hover:border-[#10B981] transition-colors overflow-hidden no-underline bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          Configuration Guide
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Configure database connections, logging, and application settings
+        </p>
+        <div className="flex items-center text-[#10B981] group-hover:text-[#059669] text-sm font-medium">
+          Learn more
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+
+    <a
+      href="/guides/docker-deployment"
+      className="group block rounded-2xl border border-gray-200 dark:border-[#27272a] hover:border-[#10B981] dark:hover:border-[#10B981] transition-colors overflow-hidden no-underline bg-white dark:bg-[#1a1d27]"
+    >
+      <div className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+          Docker Deployment
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Deploy WalletSync using Docker containers for easy setup
+        </p>
+        <div className="flex items-center text-[#10B981] group-hover:text-[#059669] text-sm font-medium">
+          Learn more
+          <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div className="rounded-2xl bg-gradient-to-r from-[#10B981] to-[#059669] dark:from-[#059669] dark:to-[#065f46] p-8 md:p-12">
+    <div className="max-w-3xl">
+      <h2 className="text-3xl font-bold text-white mb-4">
+        Ready to get started?
+      </h2>
+      <p className="text-lg text-white/90 mb-6">
+        Follow our quickstart guide to set up WalletSync and start tracking your finances in minutes.
+      </p>
+      <a
+        href="/quickstart"
+        className="inline-flex items-center px-6 py-3 bg-white text-[#10B981] font-semibold rounded-lg hover:bg-gray-100 transition-colors"
+      >
+        View Quickstart Guide
+      </a>
+    </div>
+  </div>
+</div>
